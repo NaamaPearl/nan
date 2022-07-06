@@ -18,9 +18,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from nan.dataloaders.basic_dataset import process_fn
-from nan.raw2output import RaysOutput
-from utils import l2_loss, bayesian_img2mse, noise2stats_loss, onehot_penalty, TINY_NUMBER, img2mse_expanded, l1_loss, \
-    ssim_loss, mean_with_mask, gen_loss
+from nan.dataloaders.data_utils import TINY_NUMBER
+from nan.losses import l2_loss, l1_loss, gen_loss
+from nan.utils.eval_utils import ssim_loss
 
 
 class RGBCriterion(nn.Module):
@@ -137,147 +137,10 @@ class L1GradLoss(SmoothnessCriterion):
         return dx, dy
 
 
-
-class BayesianCriterion(nn.Module):
-    def __init__(self):
-        super().__init__()
-
-    def forward(self, outputs, ray_batch, scalars_to_log):
-        """
-        training criterion
-        """
-        pred_rgb = outputs['rgb']
-        pred_mask = outputs['mask'].float()
-        gt_rgb = ray_batch['rgb']
-        beta = outputs['beta']
-
-        loss = bayesian_img2mse(pred_rgb, gt_rgb, beta, pred_mask)
-        # loss = bayesian_img2mse(pred_rgb, gt_rgb, beta, pred_mask) + bayesian_regularization(beta, pred_mask)
-        scalars_to_log['rgb_loss'] = loss
-        return loss
-
-
-class NoiseCriterion(nn.Module):
-    def __init__(self, gamma):
-        super().__init__()
-        self.gamma = gamma
-
-    def forward(self, outputs, ray_batch, scalars_to_log):
-        """
-        training criterion
-        """
-        pred_rgb = outputs['rgb']
-        pred_noise = outputs['noise']
-        pred_target_noise = pred_noise[..., 0, :]
-        pred_mask = outputs['mask'].float()
-        gt_noisy_rgb = ray_batch['rgb']
-
-        img_loss = l2_loss(pred_rgb + pred_target_noise, gt_noisy_rgb, pred_mask)
-
-        noise_std = outputs['noise_std']
-        loss_std, loss_mean = noise2stats_loss(pred_noise, noise_std, pred_mask)
-
-        loss = img_loss + self.gamma * loss_std + self.gamma * loss_mean
-
-        return loss
-
-
-class DeltaCriterion(nn.Module):
-    def __init__(self, gamma):
-        super().__init__()
-        self.gamma = gamma
-
-    def forward(self, outputs, ray_batch, scalars_to_log):
-        """
-        training criterion
-        """
-        rgb_loss = l2_loss(outputs.rgb, ray_batch['rgb'], outputs.mask.float())
-        weights_loss = onehot_penalty(outputs.weights)
-        return rgb_loss - self.gamma * weights_loss
-
-
-class EntropyCriterion(nn.Module):
-    def __init__(self, gamma, h=64):
-        super().__init__()
-        self.gamma = gamma
-        self.h = h
-
-    def forward(self, outputs: RaysOutput, ray_batch, scalars_to_log):
-        """
-        training criterion
-        """
-        rgb_loss = l2_loss(outputs.rgb, ray_batch['rgb'], outputs.mask.float())
-        w_hist = self.create_w_hist(outputs.weights, outputs.z_vals, ray_batch['depth_range'], self.h)
-        weights_loss = self.entropy_penalty(w_hist)
-
-        scalars_to_log['rgb_loss'] = rgb_loss
-        scalars_to_log['entropy_loss'] = weights_loss
-
-        return rgb_loss + self.gamma * weights_loss
-
-    @staticmethod
-    def create_w_hist(w, z, depth_range, h):
-        assert depth_range.shape[0] == 1
-        bins = torch.linspace(depth_range[0, 0], depth_range[0, 1], steps=h, device=z.device)
-        tau = (bins[1] - bins[0]) / 2
-        k = 1 / (1 + ((z.unsqueeze(-1) - bins) / tau) ** 2)
-        H = (k * w.unsqueeze(-1)).sum(-2)
-        H = H / (H.sum(1, keepdims=True) + TINY_NUMBER)
-        return H
-
-    @staticmethod
-    def plot_hist(bins, z, H, w, tau):
-        import matplotlib.pyplot as plt
-        r = 8
-        plt.figure(figsize=(4, 3))
-        plt.plot(bins.detach().cpu().numpy(), H[r].detach().cpu().numpy(), label='calculated histogram')
-        plt.plot(z[r].detach().cpu().numpy(), w[r].detach().cpu().numpy(), 'D', markersize=2, label='network output')
-
-        k0 = 1 / (1 + ((bins - 7) / tau) ** 2)
-        plt.plot(bins.detach().cpu().numpy(), k0.detach().cpu().numpy(), label='weighting kernel')
-        plt.title("Differential histogram")
-        plt.xlabel(r"$z$ [m]")
-        plt.ylabel(r"$w(z)=T(z)\cdot\alpha(z)$")
-        plt.legend()
-        plt.subplots_adjust(top=0.91,
-                            bottom=0.16,
-                            left=0.145,
-                            right=0.975,
-                            hspace=0.2,
-                            wspace=0.2)
-        plt.show()
-
-
-    @staticmethod
-    def entropy_penalty(w_hist):
-        b = -F.softmax(w_hist, dim=1) * F.log_softmax(w_hist, dim=1)
-        return b.sum(1).mean()
-
-
-class FixedConvCriterion(nn.Module):
-    def __init__(self, ray_output):
-        super().__init__()
-        self.ray_output = ray_output
-
-    def forward(self, outputs, ray_batch, scalars_to_log):
-        """
-        training criterion
-        """
-        pred_rgb  = outputs.rgb
-        pred_mask = outputs.mask.float()
-        gt_rgb    = ray_batch['rgb']
-
-        if outputs.rho is None:
-            w = self.ray_output.w
-        else:
-            w = self.ray_output.gaussian(outputs.rho)
-
-        loss = img2mse_expanded(pred_rgb, gt_rgb, w, pred_mask)
-        scalars_to_log['rgb_loss'] = loss
-        return loss
-
-
-loss_mapping = {'l2': L2Loss, 'l1': L1Loss, 'l1_grad': L1GradLoss, 'ssim': SSIMLoss}
+loss_mapping = {'l2': L2Loss,
+                'l1': L1Loss,
+                'l1_grad': L1GradLoss,
+                'ssim': SSIMLoss}
 
 
 class NANLoss(nn.Module):
@@ -295,17 +158,6 @@ class NANLoss(nn.Module):
         return sum([w * loss(outputs, ray_batch, scalars_to_log) for w, loss in zip(self.weights_list, self.losses_list)])
 
 
-def criterion_factory(args, ray_output):
-    # Create criterion
-    if args.loss == 'entropy':
-        raise NotImplementedError
-        return EntropyCriterion(gamma=args.gamma)
-    elif args.loss in ['l1', 'l2', 'ssim']:
-        return loss_mapping[args.loss](args)
-    elif args.loss in ['ssim']:
-        pass
-    else:
-        raise IOError
 
 
 

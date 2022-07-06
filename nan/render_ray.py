@@ -71,7 +71,7 @@ def sample_pdf(bins, weights, N_samples, det=False):
 
 
 class RayRender:
-    def __init__(self, model: NANScheme, args, device, save_pixel=None, src_rgbs=None, src_rgbs_clean=None):
+    def __init__(self, model: NANScheme, args, device, save_pixel=None):
         self.model = model
         self.device = device
         self.projector = Projector(device=device, args=args)
@@ -93,17 +93,6 @@ class RayRender:
         self.fine_processing = args.N_importance > 0
         if self.fine_processing:
             assert self.model.net_fine is not None
-
-        self.clean = args.render_clean
-        self.mixed = args.render_mixed
-        assert not (self.clean and self.mixed)
-        self.process_ray_fn = self.process_ray
-        if self.clean:
-            raise IOError
-            self.process_ray_fn = self.process_ray_clean
-        if self.mixed:
-            raise IOError
-            self.process_ray_fn = self.process_ray_mixed
 
     def pixel2index(self, ray_batch):
         if self.save_pixels is not None:
@@ -181,13 +170,11 @@ class RayRender:
         pts = z_vals.unsqueeze(2) * viewdirs + ray_o  # [N_rays, N_samples + N_importance, 3]
         return pts, z_vals
 
-    def render_batch(self, ray_batch, src_rgbs, featmaps, src_rgbs_clean, featmaps_clean, org_src_rgbs,
+    def render_batch(self, ray_batch, src_rgbs, featmaps, org_src_rgbs,
                      sigma_estimate) -> Dict[str, RaysOutput]:
         """
         @param org_src_rgbs:
         @param src_rgbs:
-        @param src_rgbs_clean:
-        @param featmaps_clean:
         @param featmaps:
         @param ray_batch: {'ray_o': [N_rays, 3] , 'ray_d': [N_rays, 3], 'view_dir': [N_rays, 2]}
         @return: {'coarse': {}, 'fine': {}}
@@ -204,15 +191,9 @@ class RayRender:
         pts_coarse, z_vals_coarse = self.sample_along_ray_coarse(ray_o=ray_batch['ray_o'],
                                                                  ray_d=ray_batch['ray_d'],
                                                                  depth_range=ray_batch['depth_range'])
-        coarse = self.process_ray(ray_batch=ray_batch,
-                                  pts=pts_coarse,
-                                  z_vals=z_vals_coarse,
-                                  model=self.model.net_coarse,
-                                  save_idx=save_idx,
-                                  level=0,
-                                  src_rgbs=src_rgbs, featmaps=featmaps,
-                                  src_rgbs_clean=src_rgbs_clean, featmaps_clean=featmaps_clean,
-                                  org_src_rgbs=org_src_rgbs, sigma_estimate=sigma_estimate)
+        coarse = self.process_ray(ray_batch=ray_batch, pts=pts_coarse, z_vals=z_vals_coarse,
+                                  model=self.model.net_coarse, save_idx=save_idx, level=0, src_rgbs=src_rgbs,
+                                  featmaps=featmaps, org_src_rgbs=org_src_rgbs, sigma_estimate=sigma_estimate)
         batch_out['coarse'] = coarse
 
         if self.fine_processing:
@@ -220,38 +201,8 @@ class RayRender:
                                                                z_vals=z_vals_coarse,
                                                                ray_batch=ray_batch)
             fine = self.process_ray(ray_batch, pts_fine, z_vals_fine, self.model.net_fine, save_idx, 1,
-                                       src_rgbs, featmaps, src_rgbs_clean, featmaps_clean, org_src_rgbs, sigma_estimate)
+                                    src_rgbs, featmaps, org_src_rgbs, sigma_estimate)
 
-            """
-            import matplotlib.pyplot as plt
-            ls = ''
-            marker = '.'
-            size = 1
-            plt.figure()
-            plt.plot(z_vals_fine.T.detach().cpu().numpy(), linestyle=ls, marker=marker, markersize=size)
-            plt.xlabel('samples')
-            plt.ylabel('depth')
-            plt.title('fine')
-
-            plt.figure()
-            plt.plot(z_vals_fine.detach().cpu().numpy(), linestyle=ls, marker=marker, markersize=size)
-            plt.xlabel('rays')
-            plt.ylabel('depth')
-            plt.title('fine')
-
-            plt.figure()
-            plt.plot(z_vals_coarse.T.detach().cpu().numpy(), linestyle=ls, marker=marker, markersize=size)
-            plt.xlabel('samples')
-            plt.ylabel('depth')
-            plt.title('coarse')
-
-            plt.figure()
-            plt.plot(z_vals_coarse.detach().cpu().numpy(), linestyle=ls, marker=marker, markersize=size)
-            plt.title('coarse')
-            plt.ylabel('depth')
-            plt.xlabel('rays')
-            plt.show()
-            """
             batch_out['fine'] = fine
         return batch_out
 
@@ -277,8 +228,8 @@ class RayRender:
                                                      org_rgb, sigma_est)
         return rgb_out, sigma_out, rho, pixel_mask, *debug_info
 
-    def process_ray(self, ray_batch, pts, z_vals, model, save_idx, level, src_rgbs, featmaps, src_rgbs_clean,
-                    featmaps_clean, org_src_rgbs, sigma_estimate):
+    def process_ray(self, ray_batch, pts, z_vals, model, save_idx, level, src_rgbs, featmaps,
+                    org_src_rgbs, sigma_estimate):
         """
         @param src_rgbs:
         @param featmaps:
@@ -335,23 +286,14 @@ class RayRender:
             outputs.debug = debug_dict
         return outputs
 
-    def calc_featmaps(self, src_rgbs, src_rgbs_clean):
-        featmaps, featmaps_clean = None, None
-        if self.mixed or not self.clean:
-            if src_rgbs is not None:
-                src_rgbs = src_rgbs.to(self.device)
+    def calc_featmaps(self, src_rgbs):
+        src_rgbs = src_rgbs.to(self.device)
+        if self.model.pre_net is not None:
+            src_rgbs = self.model.pre_net(src_rgbs.squeeze(0).permute(0, 3, 1, 2)).permute(
+                # TODO redundant permute calls
+                (0, 2, 3, 1)).unsqueeze(0)
+            featmaps = self.model.feature_net(src_rgbs.squeeze(0).permute(0, 3, 1, 2))
+        else:
+            featmaps = self.model.feature_net(src_rgbs.squeeze(0).permute(0, 3, 1, 2))
 
-                if self.model.pre_net is not None:
-                    src_rgbs = self.model.pre_net(src_rgbs.squeeze(0).permute(0, 3, 1, 2)).permute(  # TODO redundant permute calls
-                        (0, 2, 3, 1)).unsqueeze(0)
-                    featmaps = self.model.feature_net(src_rgbs.squeeze(0).permute(0, 3, 1, 2))
-                else:
-                    featmaps = self.model.feature_net(src_rgbs.squeeze(0).permute(0, 3, 1, 2))
-
-        if self.mixed or self.clean:
-            if src_rgbs_clean is not None:
-                src_rgbs_clean = src_rgbs_clean.to(self.device)
-                # if self.model.pre_net is not None:
-                #     src_rgbs_clean       = self.model.pre_net(src_rgbs_clean)
-                featmaps_clean = self.model.feature_net(src_rgbs_clean.squeeze(0).permute(0, 3, 1, 2))
-        return src_rgbs, featmaps, src_rgbs_clean, featmaps_clean
+        return src_rgbs, featmaps

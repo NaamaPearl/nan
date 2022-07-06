@@ -306,10 +306,9 @@ def evaluate_rays(add_args, differ_args):
     model.switch_to_eval()
     with torch.no_grad():
         ray_sampler = RaySampler(data, device=device)
-        src_rgbs, featmaps, src_rgbs_clean, featmaps_clean = ray_render.calc_featmaps(src_rgbs=ray_sampler.src_rgbs,
-                                                                                      src_rgbs_clean=ray_sampler.src_rgbs_clean)
+        src_rgbs, featmaps = ray_render.calc_featmaps(src_rgbs=ray_sampler.src_rgbs)
         ray_batch = ray_sampler.sample_ray_batch_from_pixel(save_pixel)
-        ret = ray_render.render_batch(ray_batch, src_rgbs, featmaps, src_rgbs_clean, featmaps_clean,
+        ret = ray_render.render_batch(ray_batch, src_rgbs, featmaps,
                                       ray_sampler.src_rgbs.to(device),
                                       ray_sampler.sigma_estimate.to(device))
 

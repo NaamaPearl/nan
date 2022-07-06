@@ -47,7 +47,6 @@ def synchronize():
 
 
 def train():
-    torch.autograd.set_detect_anomaly(True)
     parser = CustomArgumentParser.config_parser()
     train_args = parser.parse_args(verbose=True)
 
@@ -66,10 +65,10 @@ if __name__ == '__main__':
     sys.argv = sys.argv + ['--config', str(TRAIN_CONFIG)]
     ckpt = train()
 
-    # Evaluation of
+    # Evaluation of last ckpt saved
     sys.argv = sys.argv[:1] + ['--config', str(EVAL_CONFIG)]
     if ckpt is not None:
         for gain in [1, 2, 4, 8, 16, 20]:
             eval_additional_args = [('factor',  4), ('eval_gain',  gain)]
-            eval_multi_scenes(ckpt, differ_from_train=eval_additional_args)
+            eval_multi_scenes(ckpt, differ_from_train_args=eval_additional_args)
         summary_multi_gains({ckpt.parent.name: (ckpt.parent.name, '')})

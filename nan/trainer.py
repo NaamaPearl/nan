@@ -49,9 +49,7 @@ class Trainer:
         self.val_loader_iterator = iter(cycle(self.val_loader))
 
         # Create IBRNet model
-        self.model = NANScheme.create(args,
-                                      load_opt=not args.no_load_opt,
-                                      load_scheduler=not args.no_load_scheduler)
+        self.model = NANScheme.create(args)
         self.last_weights_path = None
 
         # Create raw2output
@@ -94,10 +92,6 @@ class Trainer:
         while global_step < self.args.n_iters + 1:
             np.random.seed()
             for train_data in self.train_loader:
-                if global_step - self.model.start_step == 3001:
-                    if self.args.froze_mlp:
-                        self.model.unfreeze_model()
-
                 time0 = time.time()
                 if self.args.distributed:
                     self.train_sampler.set_epoch(epoch)
@@ -125,15 +119,9 @@ class Trainer:
                                                  center_ratio=self.args.center_ratio,
                                                  clean=self.args.sup_clean)
 
-        src_rgbs, featmaps, src_rgbs_clean, featmaps_clean = \
-            self.ray_render.calc_featmaps(src_rgbs=ray_sampler.src_rgbs,
-                                          src_rgbs_clean=ray_sampler.src_rgbs_clean)
+        src_rgbs, featmaps = self.ray_render.calc_featmaps(src_rgbs=ray_sampler.src_rgbs)
 
-        batch_out = self.ray_render.render_batch(ray_batch=ray_batch,
-                                                 src_rgbs=src_rgbs,
-                                                 featmaps=featmaps,
-                                                 src_rgbs_clean=src_rgbs_clean,
-                                                 featmaps_clean=featmaps_clean,
+        batch_out = self.ray_render.render_batch(ray_batch=ray_batch, src_rgbs=src_rgbs, featmaps=featmaps,
                                                  org_src_rgbs=ray_sampler.src_rgbs.to(self.device),
                                                  sigma_estimate=ray_sampler.sigma_estimate.to(self.device))
 
@@ -142,8 +130,7 @@ class Trainer:
         loss = self.criterion(batch_out['coarse'], ray_batch, scalars_to_log)
 
         if batch_out['fine'] is not None:
-            fine_loss = self.criterion(batch_out['fine'], ray_batch, scalars_to_log)
-            loss += fine_loss
+            loss += self.criterion(batch_out['fine'], ray_batch, scalars_to_log)
 
         loss.backward()
         scalars_to_log['loss'] = loss.item()

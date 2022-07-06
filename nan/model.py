@@ -53,13 +53,13 @@ class Gaussian2D(nn.Conv2d):
 
 class NANScheme(nn.Module):
     @classmethod
-    def create(cls, args, load_opt=True, load_scheduler=True, init_for_train=False):
-        model = cls(args, load_opt=load_opt, load_scheduler=load_scheduler, init_for_train=init_for_train)
+    def create(cls, args, init_for_train=False):
+        model = cls(args, init_for_train=init_for_train)
         if args.distributed:
             model = parallel(model, args.local_rank)
         return model
 
-    def __init__(self, args, load_opt=True, load_scheduler=True, init_for_train=False):
+    def __init__(self, args, init_for_train=False):
         super().__init__()
         self.args = args
         device = torch.device(f'cuda:{args.local_rank}')
@@ -70,13 +70,12 @@ class NANScheme(nn.Module):
                                    coarse_only=args.coarse_only).to(device)
 
         # create coarse NAN mlps
-        self.net_coarse: NANmlps = self.nan_factory('coarse', device)
+        self.net_coarse: NanMLP = self.nan_factory('coarse', device)
         if args.coarse_only:
             self.net_fine = None
         else:
             # create fine NAN mlps
-            self.net_fine: NANmlps = self.nan_factory('fine', device)
-
+            self.net_fine: NanMLP = self.nan_factory('fine', device)
 
         if args.pre_net:
             self.pre_net = Gaussian2D(in_channels=3, out_channels=3, kernel_size=(3, 3), sigma=(1.5, 1.5)).to(device)
@@ -89,8 +88,8 @@ class NANScheme(nn.Module):
         self.optimizer, self.scheduler = self.create_optimizer()
 
         self.start_step = self.load_from_ckpt(out_folder,
-                                              load_opt=load_opt,
-                                              load_scheduler=load_scheduler,
+                                              load_opt=not args.no_load_opt,
+                                              load_scheduler=not args.no_load_scheduler,
                                               init_for_train=init_for_train)
 
         if args.froze_mlp:
@@ -247,47 +246,6 @@ class NANScheme(nn.Module):
         return NanMLP(self.args,
                       in_feat_ch=feat_dim,
                       n_samples=n_samples).to(device)
-
-    @staticmethod
-    def _unfreeze_layer(layer):
-        for param in layer.parameters():
-            param.requires_grad = True
-
-    def _freeze_all(self):
-        print("FREEZING: Set required_grad False, except...")
-        # freeze everything
-        for parameter in self.parameters():
-            parameter.requires_grad = False
-
-    def freeze_model(self):
-        self._freeze_all()
-
-        # unfreeze relevant
-        self._unfreeze_layer(self.feature_net.conv1)
-        self._unfreeze_layer(self.feature_net.layer1)
-
-        if self.args.init_rgb_fc or self.args.expand_rgb or self.args.include_target:
-            self._unfreeze_layer(self.net_coarse.rgb_fc)
-            self._unfreeze_layer(self.net_fine.rgb_fc)
-
-        if self.args.views_attn:
-            self._unfreeze_layer(self.net_coarse.views_attention)
-            self._unfreeze_layer(self.net_coarse.base_fc)
-            self._unfreeze_layer(self.net_fine.views_attention)
-            self._unfreeze_layer(self.net_fine.base_fc)
-
-        if self.args.pos_enc == 2:
-            self._unfreeze_layer(self.net_coarse.ray_attention)
-            self._unfreeze_layer(self.net_coarse.out_geometry_fc)
-            self._unfreeze_layer(self.net_fine.ray_attention)
-            self._unfreeze_layer(self.net_fine.out_geometry_fc)
-
-        if self.args.pre_net:
-            self._unfreeze_layer(self.pre_net)
-
-    def unfreeze_model(self):
-        print("UNFREEZING: Set required_grad True")
-        self._unfreeze_layer(self)
 
 
 if __name__ == '__main__':

@@ -59,9 +59,9 @@ def init_eval(eval_args_add=None, open_dir=True, differ_args=None):
             else:
                 new_eval_args.expname += f"__{arg_name}_{arg_val}"
         eval_args = new_eval_args
-        model = NANScheme(train_args, load_scheduler=False, load_opt=False)
+        model = NANScheme(train_args)
     else:
-        model = NANScheme(eval_args, load_scheduler=False, load_opt=False)
+        model = NANScheme(eval_args)
 
     # dataloader
     test_dataset: NoiseDataset = dataset_dict[eval_args.eval_dataset](eval_args, 'test', scenes=eval_args.eval_scenes)

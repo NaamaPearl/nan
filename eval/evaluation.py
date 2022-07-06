@@ -17,11 +17,11 @@ from eval.evaluate_rays import evaluate_rays
 from eval.experiment_list import LLFF_SCENES_LIST
 
 
-def eval_multi_scenes(ckpt=None, differ_from_train=None, scene_list=None, rerun=True, post='', images=True, rays=True):
+def eval_multi_scenes(ckpt=None, differ_from_train_args=None, scene_list=None, rerun=True, post='', images=True, rays=True):
     if scene_list is None:
         scene_list = LLFF_SCENES_LIST
-    if differ_from_train is None:
-        differ_from_train = []
+    if differ_from_train_args is None:
+        differ_from_train_args = []
     for scene in scene_list:
         add_args = ['--eval_scenes', scene]
         if ckpt is not None:
@@ -29,7 +29,7 @@ def eval_multi_scenes(ckpt=None, differ_from_train=None, scene_list=None, rerun=
 
         if images:
             print("********** evaluate images ***********")
-            evaluate_images(add_args, differ_from_train, rerun, post=post)
+            evaluate_images(add_args, differ_from_train_args, rerun, post=post)
         if rays:
             print("********** evaluate rays   ***********")
-            evaluate_rays(add_args, differ_from_train)
+            evaluate_rays(add_args, differ_from_train_args)
