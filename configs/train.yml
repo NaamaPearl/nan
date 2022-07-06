@@ -1,0 +1,51 @@
+### INPUT
+expname                     : reproduce
+render_stride               : 2  # used in evaluation
+distributed                 : False
+
+## dataset
+train_dataset               : llff
+eval_dataset                : llff_test
+eval_scenes                 : [fern, orchids, flower, horns, leaves, room, trex, fortress]
+
+### TRAINING
+n_iters                     : 255000
+N_rand                      : 512
+lrate_feature               : 0.001
+lrate_mlp                   : 0.0005
+lrate_decay_factor          : 0.5
+lrate_decay_steps           : 50000
+losses                      : [l2, l1, l1_grad, ssim]
+losses_weights              : [0,  1,  0,       0]
+
+### TESTING
+chunk_size                  : 2048   # can be bigger depend on the gpu memory
+
+### RENDERING
+N_importance                : 64
+N_samples                   : 64
+inv_uniform                 : True
+white_bkgd                  : False
+
+### CONSOLE AND TENSORBOARD
+i_img                       : 1000
+i_print                     : 100
+i_tb                        : 20
+i_weights                   : 5000
+
+### additional
+#ckpt_path                   : out/pretrained/model_255000.pth   # use this if you want to train from a specific checkpoint.
+no_load_opt                 : True
+no_load_scheduler           : True
+sup_clean                   : True
+
+include_target              : True  # set to False if you want to synthesize images rather than denoise the images
+eval_gain                    : 16
+std                         : [-3.0, -0.5, -2.0, -0.5]
+
+
+views_attn                  : True
+kernel_size                 : [3, 3]
+pre_net                     : True
+noise_feat                  : True
+

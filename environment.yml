@@ -1,0 +1,40 @@
+name: nan
+channels:
+  - pytorch
+dependencies:
+  - kornia
+  - imageio
+  - numpy
+  - configargparse
+  - matplotlib
+  - gdown
+  - torch
+  - torchvision
+  - scipy
+  - tensorboardx
+  - tensorboard
+  - yaml
+  - pip
+  - pip:
+      - opencv-python
+
+configargparse            1.4                pyhd3eb1b0_0
+cudatoolkit               10.2.89              h74a9793_1
+exifread                  2.3.2                    pypi_0    pypi
+gdown                     3.13.0             pyhd8ed1ab_0    conda-forge
+imageio                   2.9.0              pyhd3eb1b0_0
+kornia                    0.6.4                    pypi_0    pypi
+matplotlib                3.4.2            py38haa95532_0
+natsort                   8.1.0                    pypi_0    pypi
+numpy                     1.19.2           py38hadc3359_0
+opencv-python             4.5.5.64                 pypi_0    pypi
+python                    3.8.11               h6244533_1
+pyyaml                    6.0                      pypi_0    pypi
+rawpy                     0.17.0                   pypi_0    pypi
+scipy                     1.6.2            py38h14eb087_0
+tensorboard               2.6.0              pyhd8ed1ab_1    conda-forge
+tensorboardx              2.4                pyhd8ed1ab_0    conda-forge
+torch                     1.11.0+cu113             pypi_0    pypi
+torchvision               0.10.0               py38_cu102    pytorch
+tqdm                      4.62.1             pyhd3eb1b0_1
+yaml                      0.2.5                he774522_0    anaconda
