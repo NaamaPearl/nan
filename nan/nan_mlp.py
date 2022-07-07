@@ -231,7 +231,7 @@ class NanMLP(nn.Module):
         weight = vis / (torch.sum(vis, dim=2, keepdim=True) + 1e-8)
 
         mean, var = fused_mean_variance(x, weight)
-        sigma_globalfeat = torch.cat([mean.squeeze(2), var.squeeze(2), weight.mean()],
+        sigma_globalfeat = torch.cat([mean.squeeze(2), var.squeeze(2), weight.mean(dim=2)],
                                      dim=-1)  # [n_rays, n_samples, 32*2+1]
         globalfeat = self.geometry_fc(sigma_globalfeat)  # [n_rays, n_samples, 16]
 
