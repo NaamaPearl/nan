@@ -29,7 +29,7 @@ import rawpy
 from tqdm import tqdm
 
 from configs.config import CustomArgumentParser
-from configs.local_settings import LOG_DIR, EVAL_CONFIG
+from configs.local_setting import LOG_DIR, EVAL_CONFIG
 from nan.dataloaders.basic_dataset import NoiseDataset
 from nan.dataloaders.data_utils import random_crop, get_nearest_pose_ids, random_flip
 from nan.dataloaders.llff_data_utils import load_llff_data, batch_parse_llff_poses
@@ -340,7 +340,7 @@ if __name__ == '__main__':
 
     for d in tqdm(torch.linspace(sample['depth_range'][0], sample['depth_range'][1], 200)):
         warped_images = warp_KRt_wrapper(images.to(device), Ks.to(device), Rts.inverse().to(device), (1 / (depth * d)).to(device))
-        warped_images = warped_images[0].mean(0).permute((1, 2, 0))
+        warped_images = warped_images[0].mean().permute((1, 2, 0))
         warped_images_rgb = to_uint(warped_images.cpu().numpy().squeeze())
         plane_sweeping.append(warped_images_rgb ** (1 / 2.4))
 

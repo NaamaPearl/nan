@@ -3,17 +3,15 @@ import subprocess
 import sys
 from copy import copy
 from functools import reduce
-from pathlib import Path
-
 from torch.utils.data import DataLoader
 
 from configs.config import CustomArgumentParser
-from configs.local_settings import LOG_DIR
+from configs.local_setting import LOG_DIR
 from nan.dataloaders import NoiseDataset, dataset_dict
 from nan.model import NANScheme
 from nan.utils.io_utils import print_link
 
-
+# TODO Naama rearrange
 def init_eval(eval_args_add=None, open_dir=True, differ_args=None):
     if differ_args is None:
         differ_args = []

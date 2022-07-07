@@ -7,7 +7,7 @@ class RaysOutput:
     RGB_IDX   = slice(3)
     SIGMA_IDX = 3
 
-    def __init__(self, rgb_map, depth_map, weights, mask, alpha, z_vals, sigma, rho, debug=None):
+    def __init__(self, rgb_map, depth_map, weights=None, mask=None, alpha=None, z_vals=None, sigma=None, rho=None, debug=None):
         self.rho     = rho
         self.rgb     = rgb_map
         self.depth   = depth_map

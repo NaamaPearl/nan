@@ -19,7 +19,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from nan.dataloaders.data_utils import TINY_NUMBER
+from nan.utils.general_utils import TINY_NUMBER
 from nan.transformer import MultiHeadAttention
 
 torch._C._jit_set_profiling_executor(False)
@@ -97,7 +97,6 @@ class NanMLP(nn.Module):
             input_channel = 35
             self.views_attention = MultiHeadAttention(5, input_channel, 7, 8)
             # self.spatial_views_attention = MultiHeadAttention(5, input_channel, 7, 8)
-            self.spatial_pos_enc = self.posenc(n_samples=self.args.kernel_size[0] ** 2, d=input_channel, s=1)
         self.vis_fc = nn.Sequential(nn.Linear(32, 32),
                                     self.activation_func,
                                     nn.Linear(32, 33),
@@ -121,58 +120,28 @@ class NanMLP(nn.Module):
                                              nn.Linear(16, 1),
                                              nn.ReLU())
 
-        if args.bpn:
-            self.basis = KernelBasis(args)
-        else:
-            self.basis = None
-
-        self.rgb_fc, self.rgb_out_channels = self.rgb_fc_factory()
+        self.rgb_fc = self.rgb_fc_factory()
 
         self.rgb_reduce_fn = self.rgb_reduce_factory()
 
+        # positional encoding
         self.pos_enc_d = 16
-
-        if type(args.pos_enc_scale) is int:
-            self.pos_enc_s = args.pos_enc_scale
-        elif args.pos_enc_scale is None:
-            self.pos_enc_s = self.n_samples - 1
-        else:
-            raise IOError
-
-        if args.pos_enc == 0:
-            def apply_no_pos_enc(globalfeat, _):
-                return globalfeat
-
-            self.apply_pos_enc_fn = apply_no_pos_enc
-
-        elif args.pos_enc == 1:
-            self.pos_encoding_org = self.posenc(n_samples=self.n_samples, d=self.pos_enc_d, s=self.pos_enc_s)
-
-            def apply_org_pos_enc(globalfeat, _):
-                return globalfeat + self.pos_encoding_org
-
-            self.apply_pos_enc_fn = apply_org_pos_enc
-
-        elif args.pos_enc == 2:
-            def apply_rel_pos_enc(globalfeat, norm_z_vals):
-                return globalfeat + self.pos_encoding_rel(norm_z_vals, self.pos_enc_d, self.pos_enc_s, device)
-
-            self.apply_pos_enc_fn = apply_rel_pos_enc
+        self.pos_encoding = self.pos_enc_generator(n_samples=self.n_samples, d=self.pos_enc_d)
 
         self.apply(weights_init)
 
     def rgb_fc_factory(self):
-        if not self.args.expand_rgb:
-            rgb_out_channels = 1
+        kernel_numel = prod(self.args.kernel_size)
+        if kernel_numel == 1:
             rgb_fc = nn.Sequential(nn.Linear(32 + 1 + 4, 16),
                                    self.activation_func,
                                    nn.Linear(16, 8),
                                    self.activation_func,
-                                   nn.Linear(8, rgb_out_channels))
+                                   nn.Linear(8, 1))
 
         else:
-            rgb_out_channels = prod(self.args.kernel_size)
-            rgb_pre_out_channels = prod(self.args.kernel_size)
+            rgb_out_channels = kernel_numel
+            rgb_pre_out_channels = kernel_numel
             if self.args.rgb_weights:
                 rgb_out_channels *= 3
                 rgb_pre_out_channels *= 3
@@ -185,25 +154,20 @@ class NanMLP(nn.Module):
                                    self.activation_func,
                                    nn.Linear(rgb_out_channels, rgb_out_channels))
 
-        return rgb_fc, rgb_out_channels
+        return rgb_fc
 
-    def posenc(self, n_samples, d, s):
+    def pos_enc_generator(self, n_samples, d):
         position = torch.linspace(0, 1, n_samples, device=self.device).unsqueeze(0)
-        return self.pos_encoding_rel(position, d, s, self.device)
-
-    @staticmethod
-    def pos_encoding_rel(position, d, s, device):
-        divider = (10000 ** (2 * torch.div(torch.arange(d, device=device),
+        divider = (10000 ** (2 * torch.div(torch.arange(d, device=self.device),
                                            2, rounding_mode='floor') / d))
-        sinusoid_table = (s * position.unsqueeze(-1) / divider.unsqueeze(0))
+        sinusoid_table = (position.unsqueeze(-1) / divider.unsqueeze(0))
         sinusoid_table[..., 0::2] = torch.sin(sinusoid_table[..., 0::2])  # dim 2i
         sinusoid_table[..., 1::2] = torch.cos(sinusoid_table[..., 1::2])  # dim 2i+1
 
         return sinusoid_table
 
-    def forward(self, rgb_feat, ray_diff, norm_pos, mask, org_rgb, sigma_est):
+    def forward(self, rgb_feat, ray_diff, mask, rgb_in, sigma_est):
         """
-        @param org_rgb:
         @param sigma_est:
         @param mask:
         @param rgb_feat: rgbs and image features [n_rays, n_samples, n_views, n_feat]
@@ -211,16 +175,11 @@ class NanMLP(nn.Module):
         last channel is inner product
         @param norm_pos: mask for whether each projection is valid or not. [n_rays, n_samples, n_views, 1]
         @return: rgb and density output, [n_rays, n_samples, 4]
+        :param rgb_in:  # [n_rays, n_samples, k, k, n_views, 4]
         """
 
         # [n_rays, n_samples, n_views, 3*n_feat]
         num_valid_obs = mask.sum(dim=-2)
-
-        if self.args.blend_src:
-            rgb_in = org_rgb  # [n_rays, n_samples, k, k, n_views, 4]
-        else:
-            rgb_in = rgb_feat[..., :3]
-
         ext_feat, weight = self.compute_extended_features(ray_diff, rgb_feat, mask, num_valid_obs, sigma_est)
 
         x = self.base_fc(ext_feat)  # ((32 + 3) x 3) --> MLP --> (32)
@@ -230,9 +189,7 @@ class NanMLP(nn.Module):
         x = x + x_res
         vis = self.vis_fc2(x * vis) * mask
 
-        sigma_out, sigma_globalfeat = self.compute_sigma(x[:, :, 0, 0],
-                                                         vis[:, :, 0, 0],
-                                                         norm_pos, num_valid_obs[:, :, 0, 0])
+        sigma_out, sigma_globalfeat = self.compute_sigma(x[:, :, 0, 0], vis[:, :, 0, 0], num_valid_obs[:, :, 0, 0])
         x = torch.cat([x, vis, ray_diff], dim=-1)
         rgb_out, w_rgb, rho = self.compute_rgb(x, mask, rgb_in)
         return rgb_out, sigma_out, rho, w_rgb, rgb_in, sigma_globalfeat
@@ -270,16 +227,16 @@ class NanMLP(nn.Module):
         weight = weight / prod(self.args.kernel_size)
         return weight
 
-    def compute_sigma(self, x, vis, norm_pos, num_valid_obs):
+    def compute_sigma(self, x, vis, num_valid_obs):
         weight = vis / (torch.sum(vis, dim=2, keepdim=True) + 1e-8)
 
         mean, var = fused_mean_variance(x, weight)
-        sigma_globalfeat = torch.cat([mean.squeeze(2), var.squeeze(2), weight.mean(dim=2)],
+        sigma_globalfeat = torch.cat([mean.squeeze(2), var.squeeze(2), weight.mean()],
                                      dim=-1)  # [n_rays, n_samples, 32*2+1]
         globalfeat = self.geometry_fc(sigma_globalfeat)  # [n_rays, n_samples, 16]
 
         # positional encoding
-        globalfeat = self.apply_pos_enc_fn(globalfeat, norm_pos)
+        globalfeat = globalfeat + self.pos_encoding
 
         # ray transformer
         globalfeat, _ = self.ray_attention(globalfeat, globalfeat, globalfeat,
@@ -296,26 +253,10 @@ class NanMLP(nn.Module):
         return rgb_out, blending_weights_rgb, rho
 
     def rgb_reduce_factory(self):
-        if self.args.expand_rgb:
-            if self.args.rgb_weights:
-                return self.expanded_rgb_weighted_rgb_fn
-            else:
-                return self.expanded_weighted_rgb_fn
+        if self.args.rgb_weights:
+            return self.expanded_rgb_weighted_rgb_fn
         else:
-            return self.weighted_rgb_fn
-
-    @staticmethod
-    def mean_rgb_fn(_, __, rgb_in):
-        rgb_out = torch.mean(rgb_in, dim=2)
-        blending_weights_valid = torch.ones_like(rgb_in[..., [0]]) / rgb_in.shape[-2]
-        return rgb_out, blending_weights_valid, None
-
-    @staticmethod
-    def weighted_rgb_fn(x, mask, rgb_in):
-        w = x[..., [0]].masked_fill(~mask, -1e9)
-        blending_weights_valid = softmax3d(w, dim=(2, 3, 4))  # color blending
-        rgb_out = torch.sum(rgb_in * blending_weights_valid, dim=(2, 3, 4))
-        return rgb_out, blending_weights_valid, None
+            return self.expanded_weighted_rgb_fn
 
     @staticmethod
     def expanded_weighted_rgb_fn(x, mask, rgb_in):
@@ -333,27 +274,4 @@ class NanMLP(nn.Module):
         blending_weights_valid = softmax3d(w, dim=(2, 3, 4))  # color blending
         rgb_out = torch.sum(rgb_in * blending_weights_valid, dim=(2, 3, 4))
         return rgb_out, blending_weights_valid, None
-
-    @staticmethod
-    def conv_weighted_rgb_fn(x, mask, rgb_in):
-        # implementation from
-        # https://discuss.pytorch.org/t/how-to-apply-different-kernels-to-each-example-in-a-batch-when-using-convolution/84848/3
-
-        rays, samples, k1, k2, views, channels = rgb_in.shape
-
-        # (rays, samples, views, k1, k2, channels)
-        rho = torch.sigmoid(x.squeeze()[..., -1].mean(-1)).clamp(1e-3)
-        w = x.masked_fill((~mask), -1e9).squeeze()[..., :-1].view((rays, samples, views, 3, 3, channels))
-
-        # (rays*samples*channels)
-        conv_weights = softmax3d(w, dim=(2, 3, 4)).permute((0, 1, 5, 2, 3, 4)).reshape((-1, views, 3, 3))
-        rgb_out = torch.nn.functional.conv2d(input=rgb_in.permute((0, 1, 5, 4, 2, 3)).reshape(-1, views, k1, k2).reshape((1, -1, k1, k2)),
-                                             weight=conv_weights,
-                                             padding="valid",
-                                             groups=rays*samples*channels)  # color
-        rgb_out = rgb_out.reshape((rays, samples, channels, 3, 3)).permute((0, 1, 3, 4, 2))
-        return rgb_out, conv_weights, rho
-
-    def _forward_unimplemented(self, *input_: Any) -> None:
-        pass
 

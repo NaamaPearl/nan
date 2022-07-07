@@ -79,7 +79,6 @@ class RayRender:
         self.N_samples = args.N_samples
         self.ray_output = rays_output_factory(args)
         self.inv_uniform = args.inv_uniform
-        self.inv_pos_enc = args.inv_pos_enc
         self.N_importance = args.N_importance
         self.det = args.det
         self.white_bkgd = args.white_bkgd
@@ -213,18 +212,8 @@ class RayRender:
 
         pixel_mask = mask[..., 0].sum(dim=2) > 1  # [N_rays, N_samples], should at least have 2 observations
 
-        min_z = ray_batch['depth_range'][0][0]  # 2
-        max_z = ray_batch['depth_range'][0][1]  # 10
-        if self.inv_pos_enc:
-            w_vals = 1 / z_vals
-            max_w = 1 / min_z  # 0.5
-            min_w = 1 / max_z  # 0.1
-            norm_pos = (w_vals - max_w) / (min_w - max_w)
-        else:
-            norm_pos = (z_vals - min_z) / (max_z - min_z)
-
         # [N_rays, N_samples, 4]
-        rgb_out, sigma_out, rho, *debug_info = model(rgb_feat, ray_diff, norm_pos, mask.unsqueeze(-3).unsqueeze(-3),
+        rgb_out, sigma_out, rho, *debug_info = model(rgb_feat, ray_diff, mask.unsqueeze(-3).unsqueeze(-3),
                                                      org_rgb, sigma_est)
         return rgb_out, sigma_out, rho, pixel_mask, *debug_info
 

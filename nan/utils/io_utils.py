@@ -1,176 +1,152 @@
-import re
+# Copyright 2020 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
 
-# import comet_ml
+
+from matplotlib.backends.backend_agg import FigureCanvasAgg
+from matplotlib.figure import Figure
+import matplotlib as mpl
 import os
-import time
 from functools import reduce
 from pathlib import Path
-from typing import Dict
-
-import matplotlib.pyplot as plt
+import cv2
 import numpy as np
 import torch
-from kornia import tensor_to_image
-
-
-def norm_im(im):
-    return (im - im.min(axis=(0, 1))) / (im.max(axis=(0, 1)) - im.min(axis=(0, 1)))
-
-
-def show_image_gray(image, title="", save=None, show=True):
-    show_image(image, title=title, save=save, cmap='gray', show=show)
-
-
-def create_image_figure(image, norm_by=None, title="", cmap=None, colorbar=True):
-    vmin , vmax = None, None
-
-    if norm_by is not None:
-        if type(norm_by) is tuple:
-            vmin, vmax = norm_by
-        else:
-            vmin = norm_by.min()
-            vmax = norm_by.max()
-
-    fig = plt.figure()
-    plt.imshow(tensor_to_image(image), vmin=vmin, vmax=vmax, cmap=cmap)
-    if colorbar:
-        plt.colorbar()
-    plt.title(title)
-
-    return fig
-
-
-def show_image(image, norm_by=None, title="", cmap="gray", save=None, show=True, colorbar=True):
-    fig = create_image_figure(image, norm_by=norm_by, title=title, cmap=cmap, colorbar=colorbar)
-    if show:
-        plt.show()
-
-    if save is not None:
-        fig.savefig(save)
-    if not show:
-        plt.clf()
-
-
-def create_empty_fig(rows, cols, figsize=None):
-    fig, axes = plt.subplots(rows, cols, figsize=figsize)
-    [ax.set_xticks([]) for ax in axes.ravel()]
-    [ax.set_yticks([]) for ax in axes.ravel()]
-    [axes.ravel()[i].axis('off') for i in range(rows * cols)]
-    axes = axes.reshape(rows, cols)
-    return fig, axes
-
-
-def edit_image_ax(fig, ax, image, norm_by=None, title="", cmap=None):
-    vmin , vmax = None, None
-    if norm_by is not None:
-        vmin = norm_by.min()
-        vmax = norm_by.max()
-
-    im = ax.imshow(tensor_to_image(image), vmin=vmin, vmax=vmax, cmap=cmap)
-    fig.colorbar(im, ax=ax)
-    ax.set_title(title)
-
-
-def show_depths(global_step,
-                pred_depth_dict: Dict[str, torch.Tensor],
-                gt_depth_dict: Dict[str, torch.Tensor],
-                figsize=None):
-    cols_num = len(pred_depth_dict)
-    fig, axes = create_empty_fig(1, cols_num, figsize)
-    for i, (level, depth) in enumerate(pred_depth_dict.items()):
-        edit_image_ax(fig, axes[0, i], depth[0], norm_by=gt_depth_dict[level], title=f"depth_{level}")
-    plt.suptitle(f"depths step {global_step}")
-    fig.tight_layout()
-    return fig
-
-
-def show_mean_images(global_step, mean_images_warped, figsize=None):
-    fig = create_image_figure(mean_images_warped, cmap='gray', title=f"mean images step {global_step}")
-    fig.tight_layout()
-    return fig
+from matplotlib import cm
+from nan.utils.general_utils import TINY_NUMBER
 
 
 def print_link(path: Path, first='', second=''):
     print(first + ' file:///' + str(path).replace('\\', '/') + ' ' + second)
 
 
-def tuple_str(tuple_data):
-    return reduce(lambda a, b: f"{a}_{b}", tuple_data)
+def tuple_str(tuple_data, sep='_'):
+    return reduce(lambda a, b: f"{a}{sep}{b}", tuple_data)
 
 
 def get_latest_file(root: Path, suffix="*"):
     return max(root.glob(suffix), key=os.path.getmtime)
 
 
-if __name__ == '__main__':
-    pass
+def get_vertical_colorbar(h, vmin, vmax, cmap_name='jet', label=None, cbar_precision=2):
+    """
+    :param w: pixels
+    :param h: pixels
+    :param vmin: min value
+    :param vmax: max value
+    :param cmap_name:
+    :param label
+    :return:
+    """
+    fig = Figure(figsize=(2, 8), dpi=100)
+    fig.subplots_adjust(right=1.5)
+    canvas = FigureCanvasAgg(fig)
+
+    # Do some plotting.
+    ax = fig.add_subplot(111)
+    cmap = cm.get_cmap(cmap_name)
+    norm = mpl.colors.Normalize(vmin=vmin, vmax=vmax)
+
+    tick_cnt = 6
+    tick_loc = np.linspace(vmin, vmax, tick_cnt)
+    cb1 = mpl.colorbar.ColorbarBase(ax, cmap=cmap,
+                                    norm=norm,
+                                    ticks=tick_loc,
+                                    orientation='vertical')
+
+    tick_label = [str(np.round(x, cbar_precision)) for x in tick_loc]
+    if cbar_precision == 0:
+        tick_label = [x[:-2] for x in tick_label]
+
+    cb1.set_ticklabels(tick_label)
+
+    cb1.ax.tick_params(labelsize=18, rotation=0)
+
+    if label is not None:
+        cb1.set_label(label)
+
+    fig.tight_layout()
+
+    canvas.draw()
+    s, (width, height) = canvas.print_to_buffer()
+
+    im = np.frombuffer(s, np.uint8).reshape((height, width, 4))[:, :, :3]
+
+    if h != im.shape[0]:
+        w = int(im.shape[1] / im.shape[0] * h)
+        from PIL import Image
+        im_pil = Image.fromarray(im)
+        im_pil = im_pil.resize(size=(w, h), resample=Image.BILINEAR)
+        im = np.array(im_pil) / 255
+    return im
 
 
-def decide_resume_training(resume_training, resume_last, specific_config_name):
-    if resume_training:
-        print("************* RESUME TRAINING ************")
-        if resume_last:
-            config_path = max(Path(CKPT_ROOT).glob("*"), key=os.path.getmtime)
-            config_name = config_path.stem
-            print(
-                f"RESUME LAST MODIFIED CKPT: [{config_name}], last modified time [{time.ctime(os.path.getmtime(config_path))}]")
+def colorize_np(x, cmap_name='jet', mask=None, range=None, append_cbar=False, cbar_in_image=False, cbar_precision=2):
+    """
+    turn a grayscale image into a color image
+    :param x: input grayscale, [H, W]
+    :param cmap_name: the colorization method
+    :param mask: the mask image, [H, W]
+    :param range: the range for scaling, automatic if None, [min, max]
+    :param append_cbar: if append the color bar
+    :param cbar_in_image: put the color bar inside the image to keep the output image the same size as the input image
+    :return: colorized image, [H, W]
+    """
+    if range is not None:
+        vmin, vmax = range
+    elif mask is not None:
+        # vmin, vmax = np.percentile(x[mask], (2, 100))
+        vmin = np.min(x[mask][np.nonzero(x[mask])])
+        vmax = np.max(x[mask])
+        # vmin = vmin - np.abs(vmin) * 0.01
+        x[np.logical_not(mask)] = vmin
+        # print(vmin, vmax)
+    else:
+        vmin, vmax = np.percentile(x, (1, 100))
+        vmax += TINY_NUMBER
+
+    x = np.clip(x, vmin, vmax)
+    x = (x - vmin) / (vmax - vmin)
+    # x = np.clip(x, 0., 1.)
+
+    cmap = cm.get_cmap(cmap_name)
+    x_new = cmap(x)[:, :, :3]
+
+    if mask is not None:
+        mask = np.float32(mask[:, :, np.newaxis])
+        x_new = x_new * mask + np.ones_like(x_new) * (1. - mask)
+
+    cbar = get_vertical_colorbar(h=x.shape[0], vmin=vmin, vmax=vmax, cmap_name=cmap_name, cbar_precision=cbar_precision)
+
+    if append_cbar:
+        if cbar_in_image:
+            x_new[:, -cbar.shape[1]:, :] = cbar
         else:
-            config_name = specific_config_name
-            config_path = CKPT_ROOT / specific_config_name
-            print(
-                f"RESUME SPECIFIED CKPT: [{config_name}], last modified time [{time.ctime(os.path.getmtime(config_path))}]")
+            x_new = np.concatenate((x_new, np.zeros_like(x_new[:, :5, :]), cbar), axis=1)
+        return x_new
     else:
-        print("************* NEW TRAINING ************")
-        config_name = None
-    print("\n")
-    print("\n")
-    print("\n")
-    return config_name
+        return x_new
 
 
-def float_str(weight):
-    if weight == 0:
-        return weight
-    return f"{weight:.0e}" if weight < 1 else str(weight)
+# tensor
+def colorize(x, cmap_name='jet', mask=None, range=None, append_cbar=False, cbar_in_image=False):
+    device = x.device
+    x = x.cpu().numpy()
+    if mask is not None:
+        mask = mask.cpu().numpy() > 0.99
+        kernel = np.ones((3, 3), np.uint8)
+        mask = cv2.erode(mask.astype(np.uint8), kernel, iterations=1).astype(bool)
 
-
-def read_pfm(filename):
-    file = open(filename, 'rb')
-    color = None
-    width = None
-    height = None
-    scale = None
-    endian = None
-
-    header = file.readline().decode('utf-8').rstrip()
-    if header == 'PF':
-        color = True
-    elif header == 'Pf':
-        color = False
-    else:
-        raise Exception('Not a PFM file.')
-
-    dim_match = re.match(r'^(\d+)\s(\d+)\s$', file.readline().decode('utf-8'))
-    if dim_match:
-        width, height = map(int, dim_match.groups())
-    else:
-        raise Exception('Malformed PFM header.')
-
-    scale = float(file.readline().rstrip())
-    if scale < 0:  # little-endian
-        endian = '<'
-        scale = -scale
-    else:
-        endian = '>'  # big-endian
-
-    data = np.fromfile(file, endian + 'f')
-    shape = (height, width, 3) if color else (height, width)
-
-    data = np.reshape(data, shape)
-    data = np.flipud(data)
-    file.close()
-    return data, scale
-
-
-def get_latest_file(root: Path, suffix="*"):
-    return max(root.glob(suffix), key=os.path.getmtime)
+    x = colorize_np(x, cmap_name, mask, range, append_cbar, cbar_in_image)
+    x = torch.from_numpy(x).to(device)
+    return x

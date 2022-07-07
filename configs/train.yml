@@ -17,6 +17,7 @@ lrate_decay_factor          : 0.5
 lrate_decay_steps           : 50000
 losses                      : [l2, l1, l1_grad, ssim]
 losses_weights              : [0,  1,  0,       0]
+workers                     : 0 # TODO Naama
 
 ### TESTING
 chunk_size                  : 2048   # can be bigger depend on the gpu memory

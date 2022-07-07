@@ -22,7 +22,7 @@ from pathlib import Path
 import configargparse
 import sys
 
-from configs.local_settings import OUT_DIR, TRAIN_CONFIG
+from configs.local_setting import OUT_DIR, TRAIN_CONFIG
 from nan.utils.io_utils import tuple_str, get_latest_file
 
 if sys.gettrace() is None:
@@ -38,12 +38,6 @@ def arg2expname(name, value):
         return ""
     else:
         return f"__{name}_{value}"
-
-
-class ArgsStrDict(dict):
-    def __missing__(self, key):
-        self[key] = lambda args: arg2expname(key, vars(args)[key])
-        return self[key]
 
 
 def std_str(std):
@@ -69,13 +63,13 @@ def kernel_size_str(kernel_size):
 def loss_str(args):
     losses = list(filter(lambda l: l[1] > 0, zip(args.losses, args.losses_weights)))
 
-    def single_loss(l):
+    def single_loss_str(l):
         if l[1] == 1:
             return f"{l[0]}"
         else:
             return f"{l[0]}_{l[1]}"
 
-    return reduce(lambda a, b: f"{a}__{single_loss(b)}", losses, "")
+    return reduce(lambda a, b: f"{a}__{single_loss_str(b)}", losses, "")
 
 
 class CustomArgumentParser(configargparse.ArgumentParser):
@@ -108,9 +102,10 @@ class CustomArgumentParser(configargparse.ArgumentParser):
         parser.add_argument('--eval_scenes', nargs='+', default=[],
                             help='optional, specify a subset of scenes from eval_dataset to evaluate')
         # ## others
-        parser.add_argument("--testskip", type=int, default=8,  # TODO Naama what is the difference between testskip and llffhold
-                            help='will load 1/N images from test/val sets, '
-                                 'useful for large datasets like deepvoxels or nerf_synthetic')
+        parser.add_argument("--testskip", type=int, default=8, help='will load 1/N images from test/val sets, '
+                                                                    'useful for large datasets like deepvoxels or '
+                                                                    'nerf_synthetic')  # TODO Naama what is
+        # the difference between testskip and llffhold
 
         # ########## model options ##########
         # ## ray sampling options
@@ -136,6 +131,8 @@ class CustomArgumentParser(configargparse.ArgumentParser):
                             help='if use anti-alias pooling')
         parser.add_argument("--kernel_size", nargs=2, type=int, default=None,
                             help='determine the size of the RGB blending kernels')
+        parser.add_argument("--rgb_weights", action='store_true', help='whether the blending kernels are different '
+                                                                       'for each color channel')
         parser.add_argument("--views_attn", action='store_true',
                             help='determine whether to use the views attention or not')
         parser.add_argument("--pre_net", action='store_true',
@@ -147,8 +144,8 @@ class CustomArgumentParser(configargparse.ArgumentParser):
         parser.add_argument("--no_reload", action='store_true',
                             help='do not reload weights from saved ckpt')
         parser.add_argument("--force_latest_exp", action='store_true', help='load the latest ckpt')
-        parser.add_argument("--ckpt_path", type=Path, default="",
-                            help='specific weights npy file to reload for coarse network') # TODO Naama is it just for coarse network?
+        parser.add_argument("--ckpt_path", type=Path, default=None,
+                            help='specific weights npy file to reload for coarse network')  # TODO Naama is it just for coarse network?
         parser.add_argument("--no_load_opt", action='store_true',
                             help='do not load optimizer when reloading')
         parser.add_argument("--no_load_scheduler", action='store_true',
@@ -169,8 +166,10 @@ class CustomArgumentParser(configargparse.ArgumentParser):
                             help='list of losses to apply')
         parser.add_argument("--losses_weights", nargs='+', type=float, default=[1],
                             help='list of weights for the losses')
-        parser.add_argument("--process_loss", action='store_true', help='whether to apply the loss on the post processed prediction (white balance and gamma correction).'
-                                                                        'I trained the paper results without processing, but maybe it is better to do this')
+        parser.add_argument("--process_loss", action='store_true',
+                            help='whether to apply the loss on the post processed prediction (white balance and gamma '
+                                 'correction). I trained the paper results without processing, but maybe it is better '
+                                 'to do this')
 
         # ########## rendering options ##########
         parser.add_argument("--N_samples", type=int, default=64,
@@ -199,37 +198,53 @@ class CustomArgumentParser(configargparse.ArgumentParser):
         # ########## evaluation options ##########
         parser.add_argument("--llffhold", type=int, default=8,
                             help='will take every 1/N images as LLFF test set, paper uses 8')
-        parser.add_argument("--factor", type=int, default=4, help='resolution of evaluated images. Default is 4. For LLFF dataset it means 1108x756')
+        parser.add_argument("--factor", type=int, default=4,
+                            help='resolution of evaluated images. Default is 4. For LLFF dataset it means 1108x756')
         parser.add_argument("--same", action='store_true',
-                            help='for testing: whether to load same config as in training. differ_from_training_args is than used for changing specific args.')
-        parser.add_argument("--process_output", action='store_true', help='whether to save processed output (white balance and gamma correction)')
+                            help='for testing: whether to load same config as in training. differ_from_training_args '
+                                 'is than used for changing specific args.')
+        parser.add_argument("--process_output", action='store_true',
+                            help='whether to save processed output (white balance and gamma correction)')
 
         # ### burst denoising simulation and training ###
         parser.add_argument("--std", nargs='+', type=float, default=[0],
-                            help='noise parameters for generating simulation. Options: {*single parameter: fixed std}') # TODO Naama, I think single std value doesn't work anymore
+                            help='noise parameters for generating simulation. Options: {*single parameter: fixed std}')  # TODO Naama, I think single std value doesn't work anymore
         parser.add_argument("--eval_gain", type=int, default=None,
                             help='gain to apply in evaluation')
         parser.add_argument("--include_target", action='store_true',
-                            help='whether to include the target image in the input to the algorithm (burst denoising task) or not (novel view synthesis)')
+                            help='whether to include the target image in the input to the algorithm (burst denoising '
+                                 'task) or not (novel view synthesis)')
         parser.add_argument("--sup_clean", action='store_true', help='apply the loss against the ground truth. '
-                                                                     'Surprisingly, the network can also learn by compare the prediction to the noisy input sample, which is what RawNeRF is doing.')
-        # parser.add_argument("--skip", type=int, default=1) # TODO Naama I don't think it is used anywhere
-        # parser.add_argument("--bpn", action='store_true') # TODO Naama start of implementation of basis of kernels, need to remove all references
-        # parser.add_argument("--basis_size", type=int, default=9) # TODO Naama same as bpn
+                                                                     'Surprisingly, the network can also learn by '
+                                                                     'compare the prediction to the noisy input '
+                                                                     'sample, which is what RawNeRF is doing.')
 
         # #### real world processing #####
         parser.add_argument("--wl", type=float, default=1, help='white balance to apply to the real world images')
-        parser.add_argument("--sn", type=float, default=1, help='multipicative factor for the noise parameters in the real world images')
+        parser.add_argument("--sn", type=float, default=1,
+                            help='Multiplicative factor for the noise parameters in the real world images')
 
-        parser.add_argument("--adjust", type=bool, default=False, help='whether to apply adjust to the real world images')
-        parser.add_argument("--adjust_perc", type=float, default=0.01, help='percentage value for the adjust in the real world images')
-        parser.add_argument("--clip_adjust", type=bool, default=False, help='whether to clip the images value after applying adjust in the real world images')
-        parser.add_argument("--no_red", type=bool, default=False, help='whether to apply adjust in the red channel in the real world images')
-        parser.add_argument("--camera_wb", type=bool, default=False, help='whether to use camera_wb when processing the raw data. parameters are from rawpy')
-        parser.add_argument("--no_auto_bright", type=bool, default=True, help='whether to use no_auto_bright when processing the raw data. parameters are from rawpy')
-        parser.add_argument("--dng_bits", type=int, default=16, help='number of bits when processing the raw data. parameters are from rawpy')
-        parser.add_argument("--gamma", type=bool, default=False, help='whether to apply gamma correction when processing the raw data. parameters are from rawpy')
-        parser.add_argument("--undistort", type=bool, default=False, help='whether to apply undistortion to the real world images. Parameters should be in the opencv format.')
+        parser.add_argument("--adjust", type=bool, default=False,
+                            help='whether to apply adjust to the real world images')
+        parser.add_argument("--adjust_perc", type=float, default=0.01,
+                            help='percentage value for the adjust in the real world images')
+        parser.add_argument("--clip_adjust", type=bool, default=False,
+                            help='whether to clip the images value after applying adjust in the real world images')
+        parser.add_argument("--no_red", type=bool, default=False,
+                            help='whether to apply adjust in the red channel in the real world images')
+        parser.add_argument("--camera_wb", type=bool, default=False,
+                            help='whether to use camera_wb when processing the raw data. parameters are from rawpy')
+        parser.add_argument("--no_auto_bright", type=bool, default=True, help='whether to use no_auto_bright when '
+                                                                              'processing the raw data. parameters '
+                                                                              'are from rawpy')
+        parser.add_argument("--dng_bits", type=int, default=16,
+                            help='number of bits when processing the raw data. parameters are from rawpy')
+        parser.add_argument("--gamma", type=bool, default=False, help='whether to apply gamma correction when '
+                                                                      'processing the raw data. parameters are from '
+                                                                      'rawpy')
+        parser.add_argument("--undistort", type=bool, default=False,
+                            help='whether to apply undistortion to the real world images. Parameters should be in the '
+                                 'opencv format.')
 
         return parser
 
@@ -299,7 +314,6 @@ class CustomArgumentParser(configargparse.ArgumentParser):
 
 if __name__ == '__main__':
     sys.argv = sys.argv + ['--config', str(TRAIN_CONFIG)]
-    parser = CustomArgumentParser.config_parser()
-    train_args = parser.parse_args(verbose=True)
+    test_parser = CustomArgumentParser.config_parser()
+    train_args = test_parser.parse_args(verbose=True)
     print(train_args.expname)
-

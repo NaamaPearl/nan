@@ -1,9 +1,12 @@
 import torch
 
 from nan.dataloaders.basic_dataset import process_fn
+from nan.losses import l2_loss
+from nan.utils.eval_utils import mse2psnr, img2psnr
+from nan.utils.general_utils import img_HWC2CHW
 from nan.render_image import render_single_image
 from nan.sample_ray import RaySampler
-from nan.utils import img_HWC2CHW, colorize, img2psnr, l2_loss, mse2psnr
+from nan.utils.io_utils import colorize
 
 
 def log_view_to_tb(writer, global_step, args, model, ray_sampler, gt_img, render_stride=1, prefix=''):
@@ -11,7 +14,7 @@ def log_view_to_tb(writer, global_step, args, model, ray_sampler, gt_img, render
     with torch.no_grad():
         ret = render_single_image(ray_sampler=ray_sampler, model=model, args=args)
 
-    average_im = ray_sampler.src_rgbs.cpu().mean(dim=(0, 1))
+    average_im = ray_sampler.src_rgbs.cpu().mean()
 
     if args.render_stride != 1:
         gt_img = gt_img[::render_stride, ::render_stride]

@@ -18,7 +18,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from nan.dataloaders.basic_dataset import process_fn
-from nan.dataloaders.data_utils import TINY_NUMBER
+from nan.utils.general_utils import TINY_NUMBER
 from nan.losses import l2_loss, l1_loss, gen_loss
 from nan.utils.eval_utils import ssim_loss
 

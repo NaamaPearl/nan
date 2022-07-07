@@ -19,12 +19,14 @@ import sys
 import numpy as np
 import torch.utils.data.distributed
 
-from configs.local_settings import EVAL_CONFIG, TRAIN_CONFIG
-from eval.evaluation import eval_multi_scenes
+from configs.config import CustomArgumentParser
+from configs.local_setting import EVAL_CONFIG, TRAIN_CONFIG
+from eval.evaluate import eval_multi_scenes
 from eval.summary_BD import summary_multi_gains
 from nan.trainer import Trainer
-from config import CustomArgumentParser
 import torch.distributed as dist
+
+from nan.utils.io_utils import print_link
 
 
 def worker_init_fn(worker_id):
@@ -60,15 +62,25 @@ def train():
     return last_ckpt
 
 
-if __name__ == '__main__':
-    # Training
-    sys.argv = sys.argv + ['--config', str(TRAIN_CONFIG)]
+def main():
+    print("\n")
+    print("************************************************************")
+    print_link(TRAIN_CONFIG, "Start training from config file: ")
+    print("************************************************************")
+    print("\n")
+
     ckpt = train()
 
     # Evaluation of last ckpt saved
     sys.argv = sys.argv[:1] + ['--config', str(EVAL_CONFIG)]
     if ckpt is not None:
         for gain in [1, 2, 4, 8, 16, 20]:
-            eval_additional_args = [('factor',  4), ('eval_gain',  gain)]
+            eval_additional_args = [('factor', 4), ('eval_gain', gain)]
             eval_multi_scenes(ckpt, differ_from_train_args=eval_additional_args)
         summary_multi_gains({ckpt.parent.name: (ckpt.parent.name, '')})
+
+
+if __name__ == '__main__':
+    # Training
+    sys.argv = sys.argv + ['--config', str(TRAIN_CONFIG)]
+    main()

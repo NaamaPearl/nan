@@ -2,11 +2,11 @@ from math import exp
 
 import numpy as np
 import torch
-
+import torch.nn.functional as F
 
 # TODO Naama find source for ssim
 # Calculate the one-dimensional Gaussian distribution vector
-from nan.dataloaders.data_utils import TINY_NUMBER
+from nan.utils.general_utils import TINY_NUMBER
 from nan.losses import l2_loss
 
 
@@ -70,7 +70,7 @@ def ssim(img1, img2, window_size=13, window=None, size_average=True, full=False,
     if size_average:
         ret = ssim_map.mean()
     else:
-        ret = ssim_map.mean(1).mean(1).mean(1)
+        ret = ssim_map.mean(1).mean().mean()
 
     if full:
         return ret, cs
@@ -115,9 +115,12 @@ class SSIM(torch.nn.Module):
             self.window = window
             self.channel = channel
 
-        return ssim(img1, img2, window=window, window_size=self.window_size, size_average=self.size_average, reduce=self.reduce, padd=self.padd)
+        return ssim(img1, img2, window=window, window_size=self.window_size, size_average=self.size_average,
+                    reduce=self.reduce, padd=self.padd)
 
 
-mse2psnr = lambda x: -10. * np.log10(x+TINY_NUMBER)
+def mse2psnr(x): return -10. * np.log10(x + TINY_NUMBER)
+
+
 def img2psnr(x, y, mask=None):
     return mse2psnr(l2_loss(x, y, mask).item())

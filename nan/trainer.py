@@ -9,16 +9,16 @@ import yaml
 from tensorboardX import SummaryWriter
 from torch.utils.data import DataLoader
 
-from configs.local_settings import OUT_DIR, LOG_DIR
+from configs.local_setting import OUT_DIR, LOG_DIR
 from nan.criterion import NANLoss
 from nan.dataloaders import dataset_dict
 from nan.dataloaders.create_training_dataset import create_training_dataset
+from nan.dataloaders.data_utils import cycle
 from nan.model import NANScheme
 from nan.render_ray import RayRender
 from nan.sample_ray import RaySampler
-from utils import print_link
+from nan.utils.io_utils import print_link
 from tb_logging import log_iteration, log_images
-from utils import cycle
 
 
 class Trainer:
@@ -162,6 +162,3 @@ class Trainer:
             if global_step % self.args.i_img == 0 or global_step == self.model.start_step + 1:
                 log_images(train_data, self.model, self.val_loader_iterator, self.writer, global_step,
                            self.args, self.device)
-
-##
-

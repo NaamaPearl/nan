@@ -14,20 +14,22 @@
 
 from pathlib import Path
 import imageio
+import numpy as np
+import torch
 
 from eval.slideshow import slider_show, slider_show_rgb_ray
 from nan.dataloaders.basic_dataset import process_fn, process_fn_np
+from nan.dataloaders.data_utils import to_uint
+from nan.utils.general_utils import TINY_NUMBER
 from nan.utils.io_utils import tuple_str
-from visualizing.plotting import *
-plt.rcParams["axes.prop_cycle"]   = mpl.cycler(color=["darkorchid", "darkorange", "lightskyblue", "dodgerblue", "mediumblue"])
-
-from utils import to_uint
 from eval.init_eval import init_eval
-
 from nan.render_ray import RayRender
 from nan.raw2output import RaysOutput
 from nan.sample_ray import RaySampler
+from visualizing.plotting import *
 
+plt.rcParams["axes.prop_cycle"] = mpl.cycler(
+    color=["darkorchid", "darkorange", "lightskyblue", "dodgerblue", "mediumblue"])
 
 
 # os.environ["CUDA_VISIBLE_DEVICES"] = "1"
@@ -40,15 +42,6 @@ def extract_per_pixel(output: RaysOutput, pixel):
     w_rg = output.debug[pixel]['w_rgb'].unsqueeze(-2).cpu().numpy()
     rgb_in = output.debug[pixel]['feat'][..., :3].unsqueeze(-2).cpu().numpy()
     return T_alpha, z, feat, w_rg, rgb_in
-
-
-def create_w_hist(w, z, depth_range, h):
-    bins = np.linspace(depth_range[0], depth_range[1], num=h)
-    tau = (bins[1] - bins[0]) / 2
-    k = 1 / (1 + ((z[..., None] - bins) / tau) ** 2)
-    H = (k * w[..., None]).sum(-2)
-    H = H / (H.sum() + TINY_NUMBER)
-    return H, bins
 
 
 def plot_T_alpha(z_coarse, T_alpha_coarse, z_fine, T_alpha_fine, save_pixel, filename=None, show=True):
@@ -98,7 +91,7 @@ def plot_T_alpha_samples(z, T_alpha, save_pixel, w_rgb, rgb_in, filename=None, s
     axes[1].set_ylabel(r'$T(z(i))\cdot\alpha(z(i))$')
     axes[1].set_xlim((0, len(z)))
 
-    rgb_on_ray = process_fn_np((w_rgb * rgb_in).sum((1,2,3)).repeat(20, 1).transpose((1, 0, 2)))
+    rgb_on_ray = process_fn_np((w_rgb * rgb_in).sum((1, 2, 3)).repeat(20, 1).transpose((1, 0, 2)))
     axes[2].imshow(rgb_on_ray)
     axes[2].set_xlabel(r'#$i$ samples')
     axes[2].set_ylabel(f"RGB\nalong ray\n")
@@ -116,12 +109,6 @@ def plot_T_alpha_samples(z, T_alpha, save_pixel, w_rgb, rgb_in, filename=None, s
         plt.savefig(str(filename), dpi=1200)
     if show:
         plt.show()
-
-
-def expander_square(k):
-    full = np.arange(-(k // 2), k // 2 + 1)
-    exp_x, exp_y = np.meshgrid(full, full)
-    return exp_x.ravel(), exp_y.ravel()
 
 
 def expander_empty_square(k, w=2):
@@ -161,8 +148,9 @@ def analyze_per_pixel(ret, data, save_pixel_list, res_dir: Path, show=True):
     """
     for pixel in save_pixel_list:
         y, x = pixel
-        c = 9 # 30
-        imageio.imwrite(str(rays_exp_dir / f"{tuple_str(pixel)}_gt_noisy.png"), gt_rgb_np_uint8[y - c:y + c, x - c:x + c])
+        c = 9  # 30
+        imageio.imwrite(str(rays_exp_dir / f"{tuple_str(pixel)}_gt_noisy.png"),
+                        gt_rgb_np_uint8[y - c:y + c, x - c:x + c])
     imageio.imwrite(str(rays_exp_dir / f"save_pixels_marked.png"), gt_rgb_np_uint8)
 
     # show ground truth image
@@ -202,7 +190,8 @@ def analyze_per_pixel(ret, data, save_pixel_list, res_dir: Path, show=True):
                              w_rgb=w_rgb_fine,
                              filename=rays_exp_dir / f"w_samples_{tuple_str(save_pixel)}.png")
 
-        main_rgb = process_fn_np((w_rgb_fine * rgb_in_fine).sum((1, 2, 3))[T_alpha_fine > T_alpha_fine.mean()].squeeze())
+        main_rgb = process_fn_np(
+            (w_rgb_fine * rgb_in_fine).sum((1, 2, 3))[T_alpha_fine > T_alpha_fine.mean()].squeeze())
         fig = plt.figure(figsize=(4, 3))
         ax = fig.add_subplot(projection='3d')
         ax.scatter(main_rgb[..., 0].clip(0, 1),
@@ -233,7 +222,7 @@ def analyze_per_pixel(ret, data, save_pixel_list, res_dir: Path, show=True):
                             right=1,
                             hspace=0.0,
                             wspace=0.0)
-        plt.savefig(rays_exp_dir/f"scatter_{tuple_str(save_pixel)}.png")
+        plt.savefig(rays_exp_dir / f"scatter_{tuple_str(save_pixel)}.png")
 
         # show sliders of features, rgb in, rgb weights for specific pixel
         # feat_fig, feat_slider     = slider_show(feat_fine - feat_fine.mean(2, keepdims=True))
@@ -241,12 +230,13 @@ def analyze_per_pixel(ret, data, save_pixel_list, res_dir: Path, show=True):
         # feat_fig, feat_slider     = slider_show(feat_fine)
         # var = feat_fine[..., 35:70]
         # var_fig, var_slider     = slider_show(var)
-        rgb_in_fig, rgb_in_slider = slider_show_rgb_ray(w_rgb_fine[:,0,0], process_fn_np(rgb_in_fine[:,0,0]), show=False)
+        rgb_in_fig, rgb_in_slider = slider_show_rgb_ray(w_rgb_fine[:, 0, 0], process_fn_np(rgb_in_fine[:, 0, 0]),
+                                                        show=False)
         max_coarse_idx = T_alpha_coarse.argmax()
         z_coarse_max = z_coarse[max_coarse_idx]
         z_fine_idx = ((z_fine - z_coarse_max) ** 2).argmin()
         rgb_in_slider.set_val(z_fine_idx)
-        plt.savefig(rays_exp_dir/f"rgb_{tuple_str(save_pixel)}_{z_fine_idx}.png")
+        plt.savefig(rays_exp_dir / f"rgb_{tuple_str(save_pixel)}_{z_fine_idx}.png")
 
         if w_rgb_fine.shape[1] > 1:
             kernels = w_rgb_fine[z_fine_idx, :, :, :, 0, :]
@@ -254,7 +244,7 @@ def analyze_per_pixel(ret, data, save_pixel_list, res_dir: Path, show=True):
             # kernel_by_channel = kernel_by_channel / kernel_by_channel.max(axis=(0, 1), keepdims=True)
             # kernel_by_channel = kernel_by_channel / kernel_by_channel.sum(axis=(0, 1), keepdims=True)
 
-            plt.figure(figsize=(3,3))
+            plt.figure(figsize=(3, 3))
             plt.imshow(kernel_by_channel, vmin=0, vmax=1)
             plt.yticks([])
             plt.xticks([])
@@ -264,7 +254,7 @@ def analyze_per_pixel(ret, data, save_pixel_list, res_dir: Path, show=True):
                                 right=0.99,
                                 hspace=0.0,
                                 wspace=0.0)
-            plt.savefig(rays_exp_dir/f"kernel_nor_by_sum_{tuple_str(save_pixel)}_{z_fine_idx}.png")
+            plt.savefig(rays_exp_dir / f"kernel_nor_by_sum_{tuple_str(save_pixel)}_{z_fine_idx}.png")
         plt.close('all')
 
     print('')
@@ -313,6 +303,3 @@ def evaluate_rays(add_args, differ_args):
                                       ray_sampler.sigma_estimate.to(device))
 
         analyze_per_pixel(ret, data, save_pixel, res_dir, show=False)
-
-
-

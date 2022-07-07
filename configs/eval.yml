@@ -1,0 +1,22 @@
+### INPUT
+
+# TODO Naama create default evaluation config
+ckpt_path     : D:\Naama\Documents\Projects\nan\out\reproduce__NAN\model_060000.pth
+distributed   : False
+
+## dataset
+eval_dataset  : llff_test
+
+### TESTING
+chunk_size    : 2048
+render_stride : 16
+
+### RENDERING
+N_importance  : 64
+N_samples     : 64
+inv_uniform   : True
+white_bkgd    : False
+
+## ADDITIONAL
+same          : True
+num_source_views : 8

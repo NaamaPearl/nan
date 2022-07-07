@@ -23,7 +23,7 @@ import matplotlib.pyplot as plt
 import torch
 from torch import nn
 
-from configs.local_settings import OUT_DIR
+from configs.local_setting import OUT_DIR
 from nan.feature_network import ResUNet
 from nan.nan_mlp import NanMLP
 from nan.utils.io_utils import get_latest_file, print_link
@@ -91,9 +91,6 @@ class NANScheme(nn.Module):
                                               load_opt=not args.no_load_opt,
                                               load_scheduler=not args.no_load_scheduler,
                                               init_for_train=init_for_train)
-
-        if args.froze_mlp:
-            self.freeze_model()
 
     def create_optimizer(self):
         # if not args.froze_mlp:
@@ -184,7 +181,7 @@ class NANScheme(nn.Module):
                 raise RuntimeError
             new_model_dict = net.state_dict()
 
-            # 1. filter out unnecessary keys
+            # 1. filter out unnecessary keys   # TODO Naama check what is still relevant here
             for pre_k, pre_v in pretrained_dict.items():
                 if pre_k in new_model_dict:
                     new_v = new_model_dict[pre_k]
@@ -218,10 +215,9 @@ class NANScheme(nn.Module):
                 ckpt = self.args.ckpt_path
 
         if ckpt is not None and not self.args.no_reload:
-            fpath = ckpt
-            step = int(fpath.stem[-6:])
-            print_link(fpath, '[*] Reloading from', f"starting at step={step}")
-            self.load_model(fpath, load_opt, load_scheduler, init_for_train)
+            step = int(ckpt.stem[-6:])
+            print_link(ckpt, '[*] Reloading from', f"starting at step={step}")
+            self.load_model(ckpt, load_opt, load_scheduler, init_for_train)
         else:
             if ckpt is None:
                 print('[*] No ckpts found, training from scratch...')

@@ -2,7 +2,7 @@ from functools import partial
 
 import torch
 
-from nan.dataloaders.data_utils import TINY_NUMBER
+from nan.utils.general_utils import TINY_NUMBER
 
 
 def mean_with_mask(x, mask):

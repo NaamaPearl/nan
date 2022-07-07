@@ -21,7 +21,7 @@ from typing import Tuple
 import numpy as np
 import torch
 
-from configs.local_settings import DATA_DIR
+from configs.local_setting import DATA_DIR
 from nan.dataloaders import COLMAPDataset
 from nan.dataloaders.data_utils import get_nearest_pose_ids
 
@@ -34,6 +34,9 @@ class IBRNetCollectedDataset(COLMAPDataset):
     @property
     def folder_path(self) -> Tuple[Path, ...]:
         return tuple((DATA_DIR / name for name in self.dir_name))
+
+    def pick_scenes(self, scenes):
+        raise NotImplementedError
 
     def get_all_scenes(self):
         return reduce(lambda a, b: a + list(b.glob("*")), self.folder_path, [])

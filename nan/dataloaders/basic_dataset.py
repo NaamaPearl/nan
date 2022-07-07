@@ -4,7 +4,7 @@ from pathlib import Path
 import torch
 from torch.utils.data import Dataset
 from nan.dataloaders.data_utils import random_crop, random_flip
-from configs.local_settings import DATA_DIR
+from configs.local_setting import DATA_DIR
 import imageio
 import matplotlib.pyplot as plt
 from enum import Enum
@@ -86,7 +86,7 @@ class BurstDataset(Dataset, ABC):
         if len(scenes) > 0:
             if isinstance(scenes, str):
                 scenes = [scenes]
-            return [self.folder_path[0] / scene for scene in scenes]
+            return [self.folder_path / scene for scene in scenes] # TODO Naama doesn't work in ibrnet_collected
         else:
             return self.get_all_scenes()
 
@@ -126,7 +126,7 @@ class NoiseDataset(BurstDataset, ABC):
         else:
             if self.args.eval_gain == 0:
                 sig_read, sig_shot = 0, 0
-                print(f"Loading {mode} set without additional noise.")
+                print(f"Loading {mode} set without additional noise.")  # TODO Naama change only for eval?
             else:
                 # load gain data from KPN paper https://bmild.github.io/kpn/index.html
                 noise_data = np.load(DATA_DIR / 'synthetic_5d_j2_16_noiselevels6_wide_438x202x320x8.npz')
@@ -144,7 +144,7 @@ class NoiseDataset(BurstDataset, ABC):
                 sig_read = 10 ** (log_sig_read[0] + d_read * gain_log)
                 sig_shot = 10 ** (log_sig_shot[0] + d_shot * gain_log)
 
-                print(f"Loading {mode} set for gain {self.args.eval_gain}. "
+                print(f"Loading {mode} set for gain {self.args.eval_gain}. "    # TODO Naama change only for eval?
                       f"Max std {self.get_std(1, sig_read, sig_shot)}")
 
             def get_noise_params_test():

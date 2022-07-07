@@ -18,16 +18,7 @@ from PIL import Image
 import torchvision.transforms as transforms
 import torch
 
-HUGE_NUMBER = 1e10
-TINY_NUMBER = 1e-6  # float32 only has 7 decimal digits precision
-
-img_HWC2CHW = lambda x: x.permute(2, 0, 1)
-gray2rgb = lambda x: x.unsqueeze(2).repeat(1, 1, 3)
-
-to8b = lambda x: (255 * np.clip(x, 0, 1)).astype(np.uint8)
-
-rng = np.random.RandomState(234)
-_EPS = np.finfo(float).eps * 4.0
+from nan.utils.general_utils import TINY_NUMBER, _EPS
 
 
 def to(data, device):
@@ -259,3 +250,8 @@ def get_nearest_pose_ids(tar_pose, ref_poses, num_select, tar_id=None, angular_d
     selected_ids = sorted_ids[:num_select]
     # print(angular_dists[selected_ids] * 180 / np.pi)
     return selected_ids.tolist()
+
+def to_uint(im, bits=16):
+    clipped_img = np.clip(im, a_min=0, a_max=1.)
+    return ((2 ** bits - 1) * clipped_img).astype(np.uint16) # TODO
+    # return ((2 ** bits - 1) * (im / im.max())).clip(min=0).astype(np.uint16)

@@ -11,12 +11,16 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import sys
 
-from eval.evaluate_images import evaluate_images
+from configs.global_setting import DEFAULT_GAIN_LIST
+from configs.local_setting import EVAL_CONFIG
+from eval.image_evaluator import SceneEvaluator
 from eval.evaluate_rays import evaluate_rays
 from eval.experiment_list import LLFF_SCENES_LIST
+from nan.utils.io_utils import print_link
 
-
+# TODO Naama create default evaluation config
 def eval_multi_scenes(ckpt=None, differ_from_train_args=None, scene_list=None, rerun=True, post='', images=True, rays=True):
     if scene_list is None:
         scene_list = LLFF_SCENES_LIST
@@ -29,7 +33,26 @@ def eval_multi_scenes(ckpt=None, differ_from_train_args=None, scene_list=None, r
 
         if images:
             print("********** evaluate images ***********")
-            evaluate_images(add_args, differ_from_train_args, rerun, post=post)
+            SceneEvaluator.scene_evaluation(add_args, differ_from_train_args, rerun, post=post)
         if rays:
             print("********** evaluate rays   ***********")
             evaluate_rays(add_args, differ_from_train_args)
+
+
+def main():
+    print("\n")
+    print("************************************************************")
+    print_link(EVAL_CONFIG, "Start evaluation from config file: ")
+    print("************************************************************")
+    print("\n")
+
+    for gain in DEFAULT_GAIN_LIST:
+        print(f'{gain=}')
+        differ_from_train_args = [('factor', 4), ('eval_gain', gain), ('num_source_views', 8)]
+        eval_multi_scenes(differ_from_train_args=differ_from_train_args, scene_list=['fern'])
+
+
+if __name__ == '__main__':
+    sys.argv += ['--config', str(EVAL_CONFIG)]
+    main()
+
