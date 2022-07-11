@@ -14,7 +14,7 @@ def log_view_to_tb(writer, global_step, args, model, ray_sampler, gt_img, render
     with torch.no_grad():
         ret = render_single_image(ray_sampler=ray_sampler, model=model, args=args)
 
-    average_im = ray_sampler.src_rgbs.cpu().mean()
+    average_im = ray_sampler.src_rgbs.cpu().mean(dim=(0, 1))
 
     if args.render_stride != 1:
         gt_img = gt_img[::render_stride, ::render_stride]

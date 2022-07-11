@@ -53,9 +53,14 @@ def std_str(std):
         return "__clean"
 
 
-def kernel_size_str(kernel_size):
+def kernel_size_str(args):
+    kernel_size = args.kernel_size
+    rgb_weights = args.rgb_weights
     if kernel_size != (1, 1):
-        return f"__{tuple_str(kernel_size)}"
+        if rgb_weights:
+            return f"__{tuple_str(kernel_size)}_3"
+        else:
+            return f"__{tuple_str(kernel_size)}"
     else:
         return ""
 
@@ -300,13 +305,13 @@ class CustomArgumentParser(configargparse.ArgumentParser):
         name = f"{'tar' if args.include_target else ''}" \
                f"{std_str(args.std)}" \
                f"{'__pre' if args.pre_net else ''}" \
-               f"{kernel_size_str(args.kernel_size)}" \
+               f"{kernel_size_str(args)}" \
                f"{arg2expname('views_attn', args.views_attn)}" \
                f"{arg2expname('noise_feat', args.noise_feat)}" \
                f"{loss_str(args)}" \
                f"{'__DEBUG' if DEBUG else ''}"
 
-        if name.endswith('tar__full__pre__3_3__views_attn__noise_feat__l1'):
+        if name.endswith('tar__full__pre__3_3_3__views_attn__noise_feat__l1'):
             return 'NAN'
         else:
             return name

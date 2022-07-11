@@ -32,7 +32,7 @@ def parse_camera(params):
 
 
 class RaySampler:
-    def __init__(self, data, device, resize_factor=1, render_stride=1, rgb_env=None):
+    def __init__(self, data, device, resize_factor=1, render_stride=1, rgb_env=None):  # TODO Naama rgb_env?
         super().__init__()
         self.rgb_env                        = rgb_env
         self.render_stride                  = render_stride

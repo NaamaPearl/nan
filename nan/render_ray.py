@@ -40,7 +40,7 @@ def sample_pdf(bins, weights, N_samples, det=False):
     # Take uniform samples
     if det:
         u = torch.linspace(0., 1., N_samples, device=bins.device)
-        u = u.unsqueeze(0).expand(bins.shape[0], 1)  # [N_rays, N_samples]
+        u = u.unsqueeze(0).expand(bins.shape[0], 1)  # [N_rays, N_samples]    # TODO Naama det doesnt work
     else:
         u = torch.rand(bins.shape[0], N_samples, device=bins.device)
 

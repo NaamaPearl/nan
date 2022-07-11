@@ -20,6 +20,7 @@ from eval.evaluate_rays import evaluate_rays
 from eval.experiment_list import LLFF_SCENES_LIST
 from nan.utils.io_utils import print_link
 
+
 # TODO Naama create default evaluation config
 def eval_multi_scenes(ckpt=None, differ_from_train_args=None, scene_list=None, rerun=True, post='', images=True, rays=True):
     if scene_list is None:
@@ -27,16 +28,16 @@ def eval_multi_scenes(ckpt=None, differ_from_train_args=None, scene_list=None, r
     if differ_from_train_args is None:
         differ_from_train_args = []
     for scene in scene_list:
-        add_args = ['--eval_scenes', scene]
+        additional_eval_args = ['--eval_scenes', scene]
         if ckpt is not None:
-            add_args += ['--ckpt_path', str(ckpt)]
+            additional_eval_args += ['--ckpt_path', str(ckpt)]
 
         if images:
             print("********** evaluate images ***********")
-            SceneEvaluator.scene_evaluation(add_args, differ_from_train_args, rerun, post=post)
+            SceneEvaluator.scene_evaluation(additional_eval_args, differ_from_train_args, rerun, post=post)
         if rays:
             print("********** evaluate rays   ***********")
-            evaluate_rays(add_args, differ_from_train_args)
+            evaluate_rays(additional_eval_args, differ_from_train_args)
 
 
 def main():
@@ -46,7 +47,7 @@ def main():
     print("************************************************************")
     print("\n")
 
-    for gain in DEFAULT_GAIN_LIST:
+    for gain in [0]:
         print(f'{gain=}')
         differ_from_train_args = [('factor', 4), ('eval_gain', gain), ('num_source_views', 8)]
         eval_multi_scenes(differ_from_train_args=differ_from_train_args, scene_list=['fern'])

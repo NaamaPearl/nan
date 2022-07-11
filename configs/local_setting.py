@@ -30,6 +30,7 @@ FIG_DIR      = ROOT_DIR / 'figures'
 
 TRAIN_CONFIG = ROOT_DIR / 'configs' / CONFIG_TRAIN_DICT[PC_NAME]
 EVAL_CONFIG  = ROOT_DIR / 'configs' / CONFIG_EVAL_DICT[PC_NAME]
+VIDEO_CONFIG  = ROOT_DIR / 'configs' / 'render_videos.yml'
 
 if __name__ == '__main__':
     print(ROOT_DIR)

@@ -11,7 +11,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import subprocess
+import sys
 
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.figure import Figure
@@ -28,6 +29,16 @@ from nan.utils.general_utils import TINY_NUMBER
 
 def print_link(path: Path, first='', second=''):
     print(first + ' file:///' + str(path).replace('\\', '/') + ' ' + second)
+
+
+def open_file_explorer(res_dir):
+    if sys.platform == 'win32':
+        os.startfile(os.path.realpath(str(res_dir)))
+    else:
+        try:
+            subprocess.Popen(['xdg-open', os.path.realpath(str(res_dir))])
+        except OSError:
+            pass
 
 
 def tuple_str(tuple_data, sep='_'):

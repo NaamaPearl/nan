@@ -49,4 +49,5 @@ views_attn                  : True
 kernel_size                 : [3, 3]
 pre_net                     : True
 noise_feat                  : True
+rgb_weights                 : True
 

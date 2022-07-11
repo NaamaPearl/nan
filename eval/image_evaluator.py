@@ -67,14 +67,14 @@ class Summary:
 
 
 class SceneEvaluator:
-    def __init__(self, add_args, differ_args, rerun=True, post=''):
+    def __init__(self, additional_eval_args, differ_args, rerun=True, post=''):
         self.rerun = rerun
         self.post = post
         self.summary_obj_dict: Dict[str, Summary] = {'coarse': Summary(), 'fine': Summary()}
 
-        self.test_loader, self.scene_name, self.res_dir, self.eval_args, self.model = init_eval(add_args,
+        self.test_loader, self.scene_name, self.res_dir, self.eval_args, self.model = init_eval(additional_eval_args,
                                                                                                 open_dir=False,
-                                                                                                differ_args=differ_args)
+                                                                                                differ_from_train_args=differ_args)
         self.model.switch_to_eval()
         self.device = torch.device(f'cuda:{self.eval_args.local_rank}')
         self.ours = self.check_if_ours()
@@ -254,8 +254,13 @@ class SceneEvaluator:
 
         # warp images
         if ray_sampler.render_stride == 1:
-            warped_img_rgb = warped_images_by_depth(ray_sampler, rays_output[level], data, self.res_dir, file_id, level,
-                                                    self.device)
+            warped_img_rgb = warped_images_by_depth(rays_output[level], data, self.device)
+            if self.rerun and self.eval_args.process_output:
+                warped_img_rgb = process_fn(warped_img_rgb, data['white_level'])
+            if self.eval_args.eval_dataset == 'usfm':
+                warped_img_rgb = warped_img_rgb * data['white_level']
+            imageio.imwrite(str(self.res_dir / f"{file_id}_warped_images_{level}.png"), warped_img_rgb, 'PNG-FI')
+
             res_image = np.concatenate((pred_rgb, warped_img_rgb, pred_depth_colored), axis=1)
         else:
             res_image = np.concatenate((pred_rgb, pred_depth_colored), axis=1)
@@ -356,21 +361,12 @@ def calculate_metrics(pred_rgb, gt_rgb):
 cmap_jet = plt.get_cmap('jet')
 
 
-def warped_images_by_depth(ray_sampler, output, data, out_scene_dir, file_id, level, device):
+def warped_images_by_depth(output, data, device):
     depth = output.depth.detach().to(device)
-
-    K0 = ray_sampler.intrinsics
-    Rt0 = ray_sampler.c2w_mat
-    Ki = data['src_cameras'][:, :, 2:18].reshape((-1, 4, 4))
-    Rti = data['src_cameras'][:, :, 18:34].reshape((-1, 4, 4))
-
-    Ks = torch.cat((K0, Ki), dim=0).unsqueeze(0)  # add batch dimension
-    Rts = torch.cat((Rt0, Rti), dim=0).unsqueeze(0)  # add batch dimension
-    images = torch.cat((data['rgb'].unsqueeze(0).permute((0, 1, 4, 2, 3)), data['src_rgbs'].permute((0, 1, 4, 2, 3))),
-                       dim=1)
-
-    warped_images = warp_KRt_wrapper(images.to(device), Ks.to(device), Rts.inverse().to(device), 1 / depth)
-    warped_images = warped_images[0].mean().permute((1, 2, 0))
+    Ki = data['src_cameras'][:, :, 2:18].reshape((-1, 4, 4)).unsqueeze(0)
+    Rti = data['src_cameras'][:, :, 18:34].reshape((-1, 4, 4)).unsqueeze(0)
+    images = data['src_rgbs'].permute((0, 1, 4, 2, 3))
+    warped_images = warp_KRt_wrapper(images.to(device), Ki.to(device), Rti.inverse().to(device), 1 / depth)
+    warped_images = warped_images[0].mean(0).permute((1, 2, 0))
     warped_images_rgb = to_uint(warped_images.cpu().numpy().squeeze())
-    imageio.imwrite(str(out_scene_dir / f"{file_id}_warped_images_{level}.png"), warped_images_rgb, 'PNG-FI')
     return warped_images_rgb

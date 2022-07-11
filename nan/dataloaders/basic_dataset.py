@@ -86,7 +86,7 @@ class BurstDataset(Dataset, ABC):
         if len(scenes) > 0:
             if isinstance(scenes, str):
                 scenes = [scenes]
-            return [self.folder_path / scene for scene in scenes] # TODO Naama doesn't work in ibrnet_collected
+            return [self.folder_path / scene for scene in scenes]  # TODO Naama doesn't work in ibrnet_collected
         else:
             return self.get_all_scenes()
 
@@ -144,7 +144,7 @@ class NoiseDataset(BurstDataset, ABC):
                 sig_read = 10 ** (log_sig_read[0] + d_read * gain_log)
                 sig_shot = 10 ** (log_sig_shot[0] + d_shot * gain_log)
 
-                print(f"Loading {mode} set for gain {self.args.eval_gain}. "    # TODO Naama change only for eval?
+                print(f"Loading {mode} set for gain {self.args.eval_gain}. "  # TODO Naama change only for eval?
                       f"Max std {self.get_std(1, sig_read, sig_shot)}")
 
             def get_noise_params_test():
@@ -196,29 +196,37 @@ class NoiseDataset(BurstDataset, ABC):
         return noise_rgb, sigma_estimate
 
     def create_batch_from_numpy(self, rgb_clean, camera, rgb_file, src_rgbs_clean, src_cameras, depth_range,
-                                gt_depth=0):
+                                gt_depth=None):
         if self.mode in [Mode.train, Mode.validation]:
             white_level = 10 ** -torch.rand(1)
         else:
             white_level = torch.Tensor([1])
 
-        rgb_clean = unprocess_fn(torch.from_numpy(rgb_clean[..., :3]), white_level)
+        if rgb_clean is not None:
+            rgb_clean = unprocess_fn(torch.from_numpy(rgb_clean[..., :3]), white_level)
+            rgb, _ = self.add_noise(rgb_clean)
+        else:
+            rgb = None
         src_rgbs_clean = unprocess_fn(torch.from_numpy(src_rgbs_clean[..., :3]), white_level)
-
-        rgb, _ = self.add_noise(rgb_clean)
         src_rgbs, sigma_est = self.add_noise(src_rgbs_clean)
 
-        return {'rgb_clean': rgb_clean,
-                'rgb': rgb,
-                'gt_depth': gt_depth,
-                'camera': torch.from_numpy(camera),
-                'rgb_path': str(rgb_file),
-                'src_rgbs_clean': src_rgbs_clean,
-                'src_rgbs': src_rgbs,
-                'src_cameras': torch.from_numpy(src_cameras),
-                'depth_range': depth_range,
-                'sigma_estimate': sigma_est,
-                'white_level': white_level}
+        batch_dict = {'camera'        : torch.from_numpy(camera),
+                      'rgb_path'      : str(rgb_file),
+                      'src_rgbs_clean': src_rgbs_clean,
+                      'src_rgbs'      : src_rgbs,
+                      'src_cameras'   : torch.from_numpy(src_cameras),
+                      'depth_range'   : depth_range,
+                      'sigma_estimate': sigma_est,
+                      'white_level'   : white_level}
+
+        if rgb_clean is not None:
+            batch_dict['rgb_clean'] = rgb_clean
+            batch_dict['rgb'] = rgb
+
+        if gt_depth is not None:
+            batch_dict['gt_depth'] = gt_depth
+
+        return batch_dict
 
 
 if __name__ == '__main__':

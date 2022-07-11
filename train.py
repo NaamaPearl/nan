@@ -20,6 +20,7 @@ import numpy as np
 import torch.utils.data.distributed
 
 from configs.config import CustomArgumentParser
+from configs.global_setting import DEFAULT_GAIN_LIST
 from configs.local_setting import EVAL_CONFIG, TRAIN_CONFIG
 from eval.evaluate import eval_multi_scenes
 from eval.summary_BD import summary_multi_gains
@@ -74,7 +75,7 @@ def main():
     # Evaluation of last ckpt saved
     sys.argv = sys.argv[:1] + ['--config', str(EVAL_CONFIG)]
     if ckpt is not None:
-        for gain in [1, 2, 4, 8, 16, 20]:
+        for gain in DEFAULT_GAIN_LIST:
             eval_additional_args = [('factor', 4), ('eval_gain', gain)]
             eval_multi_scenes(ckpt, differ_from_train_args=eval_additional_args)
         summary_multi_gains({ckpt.parent.name: (ckpt.parent.name, '')})

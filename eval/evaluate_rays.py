@@ -261,7 +261,7 @@ def analyze_per_pixel(ret, data, save_pixel_list, res_dir: Path, show=True):
 
 
 def evaluate_rays(add_args, differ_args):
-    test_loader, scene, res_dir, eval_args, model = init_eval(add_args, open_dir=False, differ_args=differ_args)
+    test_loader, scene, res_dir, eval_args, model = init_eval(add_args, open_dir=False, differ_from_train_args=differ_args)
     if scene == 'fern':
         save_pixel = ((271, 926), (350, 69), (558, 339))
     elif scene == 'orchids':

@@ -47,7 +47,6 @@ def render_single_image(ray_sampler: RaySampler,
     device = torch.device(f'cuda:{args.local_rank}')
     ray_render = RayRender(model=model, args=args, device=device, save_pixel=save_pixel)
     src_rgbs, featmaps = ray_render.calc_featmaps(ray_sampler.src_rgbs)
-    # torch.cuda.empty_cache()
 
     all_ret = OrderedDict([('coarse', ray_render.ray_output.empty_ret()),
                            ('fine', None)])
@@ -58,8 +57,11 @@ def render_single_image(ray_sampler: RaySampler,
     for i in tqdm(range(0, N_rays, args.chunk_size)):
         # print('batch', i)
         ray_batch = ray_sampler.specific_ray_batch(slice(i, i + args.chunk_size, 1), clean=args.sup_clean)
-        ret       = ray_render.render_batch(ray_batch, src_rgbs, featmaps, ray_sampler.src_rgbs.to(device),
-                                            ray_sampler.sigma_estimate.to(device))
+        ret       = ray_render.render_batch(ray_batch=ray_batch,
+                                            src_rgbs=src_rgbs,
+                                            featmaps=featmaps,
+                                            org_src_rgbs=ray_sampler.src_rgbs.to(device),
+                                            sigma_estimate=ray_sampler.sigma_estimate.to(device))
 
         all_ret['coarse'].append(ret['coarse'])
         if ret['fine'] is not None:

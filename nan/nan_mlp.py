@@ -157,7 +157,7 @@ class NanMLP(nn.Module):
         return rgb_fc
 
     def pos_enc_generator(self, n_samples, d):
-        position = torch.linspace(0, 1, n_samples, device=self.device).unsqueeze(0)
+        position = torch.linspace(0, 1, n_samples, device=self.device).unsqueeze(0) * n_samples
         divider = (10000 ** (2 * torch.div(torch.arange(d, device=self.device),
                                            2, rounding_mode='floor') / d))
         sinusoid_table = (position.unsqueeze(-1) / divider.unsqueeze(0))
