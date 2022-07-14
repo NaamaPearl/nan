@@ -18,7 +18,7 @@ from collections import OrderedDict
 
 from nan.model import NANScheme
 from nan.projection import Projector
-from nan.raw2output import RaysOutput, rays_output_factory
+from nan.raw2output import RaysOutput
 
 
 def sample_pdf(bins, weights, N_samples, det=False):
@@ -77,7 +77,6 @@ class RayRender:
         self.projector = Projector(device=device, args=args)
 
         self.N_samples = args.N_samples
-        self.ray_output = rays_output_factory(args)
         self.inv_uniform = args.inv_uniform
         self.N_importance = args.N_importance
         self.det = args.det
@@ -169,100 +168,83 @@ class RayRender:
         pts = z_vals.unsqueeze(2) * viewdirs + ray_o  # [N_rays, N_samples + N_importance, 3]
         return pts, z_vals
 
-    def render_batch(self, ray_batch, src_rgbs, featmaps, org_src_rgbs,
+    def render_batch(self, ray_batch, proc_src_rgbs, featmaps, org_src_rgbs,
                      sigma_estimate) -> Dict[str, RaysOutput]:
         """
+        @param sigma_estimate:
         @param org_src_rgbs:
-        @param src_rgbs:
+        @param proc_src_rgbs:
         @param featmaps:
         @param ray_batch: {'ray_o': [N_rays, 3] , 'ray_d': [N_rays, 3], 'view_dir': [N_rays, 2]}
         @return: {'coarse': {}, 'fine': {}}
         """
 
+        # Find pixels for debug
         save_idx = self.pixel2index(ray_batch)
 
+        # Create the output dictionary
         batch_out = {'coarse': None,
                      'fine': None}
 
         # pts:    [N_rays, N_samples, 3]
         # z_vals: [N_rays, N_samples]
-
+        # Sample points along ray for coarse phase
         pts_coarse, z_vals_coarse = self.sample_along_ray_coarse(ray_o=ray_batch['ray_o'],
                                                                  ray_d=ray_batch['ray_d'],
                                                                  depth_range=ray_batch['depth_range'])
-        coarse = self.process_ray(ray_batch=ray_batch, pts=pts_coarse, z_vals=z_vals_coarse,
-                                  model=self.model.net_coarse, save_idx=save_idx, level=0, src_rgbs=src_rgbs,
-                                  featmaps=featmaps, org_src_rgbs=org_src_rgbs, sigma_estimate=sigma_estimate)
+
+        # Process the rays and return the coarse phase output
+        coarse = self.process_rays_batch(ray_batch=ray_batch, pts=pts_coarse, z_vals=z_vals_coarse, save_idx=save_idx,
+                                         level='coarse', proc_src_rgbs=proc_src_rgbs, featmaps=featmaps,
+                                         org_src_rgbs=org_src_rgbs, sigma_estimate=sigma_estimate)
         batch_out['coarse'] = coarse
 
         if self.fine_processing:
+            # Sample points along ray for fine phase, based on the coarse output
             pts_fine, z_vals_fine = self.sample_along_ray_fine(coarse_out=coarse,
                                                                z_vals=z_vals_coarse,
                                                                ray_batch=ray_batch)
-            fine = self.process_ray(ray_batch, pts_fine, z_vals_fine, self.model.net_fine, save_idx, 1,
-                                    src_rgbs, featmaps, org_src_rgbs, sigma_estimate)
+
+            # Process the rays and return the fine phase output
+            fine = self.process_rays_batch(ray_batch=ray_batch, pts=pts_fine, z_vals=z_vals_fine, save_idx=save_idx,
+                                           level='fine', proc_src_rgbs=proc_src_rgbs, featmaps=featmaps,
+                                           org_src_rgbs=org_src_rgbs, sigma_estimate=sigma_estimate)
 
             batch_out['fine'] = fine
         return batch_out
 
-    def ray2raw(self, pts, ray_batch, src_rgbs, org_src_rgbs, featmap, sigma_est, model, z_vals):
-        proj_out = self.projector.compute(pts, ray_batch['camera'], src_rgbs, org_src_rgbs, sigma_est,
-                                          ray_batch['src_cameras'], featmaps=featmap)  # [N_rays, N_samples, N_views, x]
-        rgb_feat, ray_diff, mask, org_rgb, sigma_est = proj_out
-
-        pixel_mask = mask[..., 0].sum(dim=2) > 1  # [N_rays, N_samples], should at least have 2 observations
-
-        # [N_rays, N_samples, 4]
-        rgb_out, sigma_out, rho, *debug_info = model(rgb_feat, ray_diff, mask.unsqueeze(-3).unsqueeze(-3),
-                                                     org_rgb, sigma_est)
-        return rgb_out, sigma_out, rho, pixel_mask, *debug_info
-
-    def process_ray(self, ray_batch, pts, z_vals, model, save_idx, level, src_rgbs, featmaps,
-                    org_src_rgbs, sigma_estimate):
+    def process_rays_batch(self, ray_batch, pts, z_vals, save_idx, level, proc_src_rgbs, featmaps,
+                           org_src_rgbs, sigma_estimate):
         """
-        @param src_rgbs:
+        @param sigma_estimate:
+        @param org_src_rgbs:
+        @param proc_src_rgbs:
         @param featmaps:
         @param level:
         @param ray_batch:
         @param pts:
         @param z_vals:
-        @param model:
         @param save_idx:
         @return:
         """
-        rgb_out, sigma_out, rho, pixel_mask, *debug_info = self.ray2raw(pts, ray_batch, src_rgbs, org_src_rgbs,
-                                                                        featmaps[level], sigma_estimate, model, z_vals)
-        return self.raw2output(rgb_out, sigma_out, rho, z_vals, pixel_mask, save_idx, *debug_info)
+        # Project the pts along the rays batch on all others views (src views)
+        # based on the target camera and src cameras (intrinsics - K, rotation - R, translation - t)
+        proj_out = self.projector.compute(pts, ray_batch['camera'], proc_src_rgbs, org_src_rgbs, sigma_estimate,
+                                          ray_batch['src_cameras'],
+                                          featmaps=featmaps[level])  # [N_rays, N_samples, N_views, x]
+        rgb_feat, ray_diff, pts_mask, org_rgb, sigma_est = proj_out
 
-    def process_ray_clean(self, ray_batch, pts, z_vals, model, save_idx, level, src_rgbs, featmaps, src_rgbs_clean,
-                          featmaps_clean,
-                          org_src_rgbs, sigma_estimate):
-        """
-        @param _:
-        @param __:
-        @param src_rgbs_clean:
-        @param featmaps_clean:
-        @param level:
-        @param ray_batch:
-        @param pts:
-        @param z_vals:
-        @param model:
-        @param save_idx:
-        @return:
-        """
-        rgb_out, sigma_out, pixel_mask, *debug_info = self.ray2raw(pts, ray_batch, src_rgbs_clean,
-                                                                   featmaps_clean[level], model,
-                                                                   z_vals)
-        return self.raw2output(rgb_out, sigma_out, z_vals, pixel_mask, save_idx, *debug_info)
+        # [N_rays, N_samples, 4]
+        # TODO change name of sigma to rho, like in the paper
+        # Process the feature vectors of all 3D points along each ray to predict density and rgb value
+        rgb_out, sigma_out, *debug_info = self.model.mlps[level](rgb_feat, ray_diff,
+                                                                 pts_mask.unsqueeze(-3).unsqueeze(-3),
+                                                                 org_rgb, sigma_est)
 
-    def process_ray_mixed(self, ray_batch, pts, z_vals, model, save_idx, level, src_rgbs, featmaps, src_rgbs_clean,
-                          featmaps_clean, org_src_rgbs, sigma_estimate):
-        rgb_out, _, pixel_mask, *debug_info = self.ray2raw(pts, ray_batch, src_rgbs, featmaps[level], model, z_vals)
-        _, sigma_out_clean, *_ = self.ray2raw(pts, ray_batch, src_rgbs_clean, featmaps_clean[level], model, z_vals)
-        return self.raw2output(rgb_out, sigma_out_clean, z_vals, pixel_mask, save_idx, *debug_info)
-
-    def raw2output(self, rgb_out, sigma_out, rho, z_vals, pixel_mask, save_idx, *debug_info):
-        outputs = self.ray_output.raw2output(rgb_out, sigma_out, rho, z_vals, pixel_mask, white_bkgd=self.white_bkgd)
+        # Calculate the pixel mask in the target view, based on the mask of points along the ray
+        # TODO check what is going on with the mask calculation inside raw2output
+        pixel_mask = pts_mask[..., 0].sum(dim=2) > 1  # [N_rays, N_samples], should at least have 2 observations
+        outputs = RaysOutput.raw2output(rgb_out, sigma_out, z_vals, pixel_mask, white_bkgd=self.white_bkgd)
 
         if save_idx is not None:
             debug_dict = {}
@@ -273,10 +255,10 @@ class RayRender:
                                                           ('feat', debug_info[1][idx].cpu()),
                                                           ('globalfeat_transformer', debug_info[2][idx].cpu())])
             outputs.debug = debug_dict
+
         return outputs
 
-    def calc_featmaps(self, src_rgbs):
-        src_rgbs = src_rgbs.to(self.device)
+    def calc_featmaps(self, src_rgbs):  # TODO change calls to pass src_rgbs on self.device
         if self.model.pre_net is not None:
             src_rgbs = self.model.pre_net(src_rgbs.squeeze(0).permute(0, 3, 1, 2)).permute(
                 # TODO redundant permute calls

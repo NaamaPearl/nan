@@ -49,20 +49,6 @@ def synchronize():
     dist.barrier()
 
 
-def train():
-    parser = CustomArgumentParser.config_parser()
-    train_args = parser.parse_args(verbose=True)
-
-    if train_args.distributed:
-        torch.cuda.set_device(train_args.local_rank)
-        torch.distributed.init_process_group(backend="nccl", init_method="env://")
-        synchronize()
-
-    trainer = Trainer(train_args)
-    last_ckpt = trainer.train()
-    return last_ckpt
-
-
 def main():
     print("\n")
     print("************************************************************")
@@ -70,18 +56,34 @@ def main():
     print("************************************************************")
     print("\n")
 
-    ckpt = train()
+    # Create training args
+    parser = CustomArgumentParser.config_parser()
+    train_args = parser.parse_args(verbose=True)
 
-    # Evaluation of last ckpt saved
+    # Set distributed options
+    if train_args.distributed:
+        torch.cuda.set_device(train_args.local_rank)
+        torch.distributed.init_process_group(backend="nccl", init_method="env://")
+        synchronize()
+
+    # Call to train and return the last saved checkpoint
+    trainer = Trainer(train_args)
+    last_ckpt = trainer.train()
+
+    # Evaluation of last ckpt saved using the default evaluation config EVAL_CONFIG
     sys.argv = sys.argv[:1] + ['--config', str(EVAL_CONFIG)]
-    if ckpt is not None:
+    if last_ckpt is not None:
+        # Run evaluation on each gain level (defined as in KPN paper)
         for gain in DEFAULT_GAIN_LIST:
+            # To use the same configuration as in the training config set args.same = True (set in the default config)
+            # Additional args which differ from the training scheme should be set here. (factor is the image resolution)
+            # init_eval.py create the evaluation params from the training params
             eval_additional_args = [('factor', 4), ('eval_gain', gain)]
-            eval_multi_scenes(ckpt, differ_from_train_args=eval_additional_args)
-        summary_multi_gains({ckpt.parent.name: (ckpt.parent.name, '')})
+            eval_multi_scenes(last_ckpt, differ_from_train_args=eval_additional_args)
+        summary_multi_gains({last_ckpt.parent.name: (last_ckpt.parent.name, '')})
 
 
 if __name__ == '__main__':
-    # Training
+    # Training using the default training config TRAIN_CONFIG
     sys.argv = sys.argv + ['--config', str(TRAIN_CONFIG)]
     main()

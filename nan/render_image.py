@@ -58,7 +58,7 @@ def render_single_image(ray_sampler: RaySampler,
         # print('batch', i)
         ray_batch = ray_sampler.specific_ray_batch(slice(i, i + args.chunk_size, 1), clean=args.sup_clean)
         ret       = ray_render.render_batch(ray_batch=ray_batch,
-                                            src_rgbs=src_rgbs,
+                                            proc_src_rgbs=src_rgbs,
                                             featmaps=featmaps,
                                             org_src_rgbs=ray_sampler.src_rgbs.to(device),
                                             sigma_estimate=ray_sampler.sigma_estimate.to(device))

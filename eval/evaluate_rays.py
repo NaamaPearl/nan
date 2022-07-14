@@ -18,7 +18,7 @@ import numpy as np
 import torch
 
 from eval.slideshow import slider_show, slider_show_rgb_ray
-from nan.dataloaders.basic_dataset import process_fn, process_fn_np
+from nan.dataloaders.basic_dataset import de_linearize, de_linearize_np
 from nan.dataloaders.data_utils import to_uint
 from nan.utils.general_utils import TINY_NUMBER
 from nan.utils.io_utils import tuple_str
@@ -91,7 +91,7 @@ def plot_T_alpha_samples(z, T_alpha, save_pixel, w_rgb, rgb_in, filename=None, s
     axes[1].set_ylabel(r'$T(z(i))\cdot\alpha(z(i))$')
     axes[1].set_xlim((0, len(z)))
 
-    rgb_on_ray = process_fn_np((w_rgb * rgb_in).sum((1, 2, 3)).repeat(20, 1).transpose((1, 0, 2)))
+    rgb_on_ray = de_linearize_np((w_rgb * rgb_in).sum((1, 2, 3)).repeat(20, 1).transpose((1, 0, 2)))
     axes[2].imshow(rgb_on_ray)
     axes[2].set_xlabel(r'#$i$ samples')
     axes[2].set_ylabel(f"RGB\nalong ray\n")
@@ -135,8 +135,8 @@ def analyze_per_pixel(ret, data, save_pixel_list, res_dir: Path, show=True):
     # for f in rays_exp_dir.glob("*"):
     #     f.unlink()
 
-    gt_rgb = process_fn(data['rgb_clean'][0])
-    noisy_rgb = process_fn(data['rgb'][0])
+    gt_rgb = de_linearize(data['rgb_clean'][0])
+    noisy_rgb = de_linearize(data['rgb'][0])
 
     gt_rgb_np_uint8 = to_uint(noisy_rgb.numpy())
     gt_rgb_np_uint8[tuple(zip(*get_pixels_around(*expander_empty_square(9, 3), save_pixel_list)))] = (220, 10, 49)
@@ -190,7 +190,7 @@ def analyze_per_pixel(ret, data, save_pixel_list, res_dir: Path, show=True):
                              w_rgb=w_rgb_fine,
                              filename=rays_exp_dir / f"w_samples_{tuple_str(save_pixel)}.png")
 
-        main_rgb = process_fn_np(
+        main_rgb = de_linearize_np(
             (w_rgb_fine * rgb_in_fine).sum((1, 2, 3))[T_alpha_fine > T_alpha_fine.mean()].squeeze())
         fig = plt.figure(figsize=(4, 3))
         ax = fig.add_subplot(projection='3d')
@@ -230,7 +230,7 @@ def analyze_per_pixel(ret, data, save_pixel_list, res_dir: Path, show=True):
         # feat_fig, feat_slider     = slider_show(feat_fine)
         # var = feat_fine[..., 35:70]
         # var_fig, var_slider     = slider_show(var)
-        rgb_in_fig, rgb_in_slider = slider_show_rgb_ray(w_rgb_fine[:, 0, 0], process_fn_np(rgb_in_fine[:, 0, 0]),
+        rgb_in_fig, rgb_in_slider = slider_show_rgb_ray(w_rgb_fine[:, 0, 0], de_linearize_np(rgb_in_fine[:, 0, 0]),
                                                         show=False)
         max_coarse_idx = T_alpha_coarse.argmax()
         z_coarse_max = z_coarse[max_coarse_idx]

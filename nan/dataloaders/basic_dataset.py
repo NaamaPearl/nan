@@ -29,7 +29,13 @@ k0 = (1 + a) * (1 / gamma) * t ** ((1 / gamma) - 1.)  # 12.92
 inv_t = t * k0
 
 
-def process_fn(rgb, wl=1.):
+def de_linearize(rgb, wl=1.):
+    """
+    Process the RGB values in the inverse process of the approximate linearization, in a differential format
+    @param rgb:
+    @param wl:
+    @return:
+    """
     rgb = rgb / wl
     srgb = torch.where(rgb > t, (1 + a) * torch.clamp(rgb, min=t) ** (1 / gamma) - a, k0 * rgb)
 
@@ -39,7 +45,7 @@ def process_fn(rgb, wl=1.):
     return srgb
 
 
-def process_fn_np(rgb, wl=1.):
+def de_linearize_np(rgb, wl=1.):
     rgb = rgb / wl
     srgb = np.where(rgb > t, (1 + a) * np.clip(rgb, a_min=t, a_max=np.inf) ** (1 / gamma) - a, k0 * rgb)
 
@@ -49,7 +55,14 @@ def process_fn_np(rgb, wl=1.):
     return srgb
 
 
-def unprocess_fn(rgb, wl=1.):
+def re_linearize(rgb, wl=1.):
+    """
+    Approximate re-linearization of RGB values by revert gamma correction and apply white level
+    Revert gamma correction
+    @param rgb:
+    @param wl:
+    @return:
+    """
     # return rgb
     return wl * (rgb ** 2.2)
     # degamma = torch.where(rgb > inv_t, ((torch.clamp(rgb, min=inv_t) + a) / (1 + a)) ** gamma, rgb / k0)
@@ -203,11 +216,11 @@ class NoiseDataset(BurstDataset, ABC):
             white_level = torch.Tensor([1])
 
         if rgb_clean is not None:
-            rgb_clean = unprocess_fn(torch.from_numpy(rgb_clean[..., :3]), white_level)
+            rgb_clean = re_linearize(torch.from_numpy(rgb_clean[..., :3]), white_level)
             rgb, _ = self.add_noise(rgb_clean)
         else:
             rgb = None
-        src_rgbs_clean = unprocess_fn(torch.from_numpy(src_rgbs_clean[..., :3]), white_level)
+        src_rgbs_clean = re_linearize(torch.from_numpy(src_rgbs_clean[..., :3]), white_level)
         src_rgbs, sigma_est = self.add_noise(src_rgbs_clean)
 
         batch_dict = {'camera'        : torch.from_numpy(camera),
@@ -231,8 +244,8 @@ class NoiseDataset(BurstDataset, ABC):
 
 if __name__ == '__main__':
     v = torch.linspace(0, 1, 100)
-    v_unproc = unprocess_fn(v, 1)
-    v_proc = process_fn(v_unproc, 1)
+    v_unproc = re_linearize(v, 1)
+    v_proc = de_linearize(v_unproc, 1)
 
     plt.figure()
     plt.plot(v, v, label='linear')
@@ -250,13 +263,13 @@ if __name__ == '__main__':
     plt.imshow(im.clamp(0, 1))
     plt.show()
 
-    im_unprocessed = unprocess_fn(im)
+    im_unprocessed = re_linearize(im)
 
     plt.figure()
     plt.imshow(im_unprocessed.clamp(0, 1))
     plt.show()
 
-    im_processes = process_fn(im_unprocessed)
+    im_processes = de_linearize(im_unprocessed)
 
     plt.figure()
     plt.imshow(im_processes.clamp(0, 1))

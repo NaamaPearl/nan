@@ -191,8 +191,8 @@ class NanMLP(nn.Module):
 
         sigma_out, sigma_globalfeat = self.compute_sigma(x[:, :, 0, 0], vis[:, :, 0, 0], num_valid_obs[:, :, 0, 0])
         x = torch.cat([x, vis, ray_diff], dim=-1)
-        rgb_out, w_rgb, rho = self.compute_rgb(x, mask, rgb_in)
-        return rgb_out, sigma_out, rho, w_rgb, rgb_in, sigma_globalfeat
+        rgb_out, w_rgb = self.compute_rgb(x, mask, rgb_in)
+        return rgb_out, sigma_out, w_rgb, rgb_in, sigma_globalfeat  # TODO remove rho parameter from nan mlp output
 
     def compute_extended_features(self, ray_diff, rgb_feat, mask, num_valid_obs, sigma_est):
         direction_feat = self.ray_dir_fc(ray_diff)  # [n_rays, n_samples, k, k, n_views, 35]
@@ -249,8 +249,7 @@ class NanMLP(nn.Module):
     def compute_rgb(self, x, mask, rgb_in):
         x = self.rgb_fc(x)
         rgb_out, blending_weights_rgb, rho = self.rgb_reduce_fn(x, mask, rgb_in)
-        rho = None
-        return rgb_out, blending_weights_rgb, rho
+        return rgb_out, blending_weights_rgb
 
     def rgb_reduce_factory(self):
         if self.args.rgb_weights:

@@ -16,7 +16,7 @@
 # #### see https://github.com/googleinterns/IBRNet for original
 
 from pathlib import Path
-from typing import Tuple
+from typing import Tuple, Dict
 
 import kornia
 import matplotlib.pyplot as plt
@@ -70,12 +70,10 @@ class NANScheme(nn.Module):
                                    coarse_only=args.coarse_only).to(device)
 
         # create coarse NAN mlps
-        self.net_coarse: NanMLP = self.nan_factory('coarse', device)
-        if args.coarse_only:
-            self.net_fine = None
-        else:
+        self.mlps: Dict[str, NanMLP] = {'coarse': self.nan_factory('coarse', device), 'fine': None}
+        if not args.coarse_only:
             # create fine NAN mlps
-            self.net_fine: NanMLP = self.nan_factory('fine', device)
+            self.mlps['fine'] = self.nan_factory('fine', device)
 
         if args.pre_net:
             self.pre_net = Gaussian2D(in_channels=3, out_channels=3, kernel_size=(3, 3), sigma=(1.5, 1.5)).to(device)
@@ -91,6 +89,14 @@ class NANScheme(nn.Module):
                                               load_opt=not args.no_load_opt,
                                               load_scheduler=not args.no_load_scheduler,
                                               init_for_train=init_for_train)
+
+    @property
+    def net_coarse(self):
+        return self.mlps['coarse']
+
+    @property
+    def net_fine(self):
+        return self.mlps['fine']
 
     def create_optimizer(self):
         # if not args.froze_mlp:

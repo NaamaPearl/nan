@@ -9,7 +9,7 @@ import torch
 import time
 
 from eval.init_eval import init_eval
-from nan.dataloaders.basic_dataset import process_fn
+from nan.dataloaders.basic_dataset import de_linearize
 from nan.dataloaders.data_utils import to_uint
 from nan.raw2output import RaysOutput
 from nan.render_image import render_single_image
@@ -129,7 +129,7 @@ class SceneEvaluator:
 
         # process output if needed (white balance and gamma correction)
         if self.rerun and self.eval_args.process_output:
-            pred_rgb = process_fn(pred_rgb, data['white_level'])
+            pred_rgb = de_linearize(pred_rgb, data['white_level'])
         if self.eval_args.eval_dataset == 'usfm':
             pred_rgb = pred_rgb * data['white_level']
 
@@ -183,8 +183,8 @@ class SceneEvaluator:
         averaged_img = np.mean(src_rgbs, axis=0)
 
         if self.eval_args.process_output:
-            noisy_rgb = process_fn(noisy_rgb, data['white_level'])
-            averaged_img = process_fn(averaged_img, data['white_level']).cpu().numpy()
+            noisy_rgb = de_linearize(noisy_rgb, data['white_level'])
+            averaged_img = de_linearize(averaged_img, data['white_level']).cpu().numpy()
         if self.eval_args.eval_dataset == 'usfm':
             noisy_rgb = noisy_rgb * data['white_level']
             averaged_img = averaged_img * data['white_level'].numpy()
@@ -218,7 +218,7 @@ class SceneEvaluator:
             # same idea as "Unprocessing Images for Learned Raw Denoising"
 
             if self.eval_args.process_output:
-                gt_rgb = process_fn(gt_rgb, data['white_level'])
+                gt_rgb = de_linearize(gt_rgb, data['white_level'])
             if self.eval_args.eval_dataset == 'usfm':
                 gt_rgb = gt_rgb * data['white_level']
         else:
@@ -256,7 +256,7 @@ class SceneEvaluator:
         if ray_sampler.render_stride == 1:
             warped_img_rgb = warped_images_by_depth(rays_output[level], data, self.device)
             if self.rerun and self.eval_args.process_output:
-                warped_img_rgb = process_fn(warped_img_rgb, data['white_level'])
+                warped_img_rgb = de_linearize(warped_img_rgb, data['white_level'])
             if self.eval_args.eval_dataset == 'usfm':
                 warped_img_rgb = warped_img_rgb * data['white_level']
             imageio.imwrite(str(self.res_dir / f"{file_id}_warped_images_{level}.png"), warped_img_rgb, 'PNG-FI')

@@ -265,4 +265,4 @@ class ResUNet(nn.Module):
         else:
             x_coarse = x_out[:, :self.coarse_out_ch, :]
             x_fine = x_out[:, -self.fine_out_ch:, :]
-        return x_coarse, x_fine
+        return {'coarse': x_coarse, 'fina': x_fine}

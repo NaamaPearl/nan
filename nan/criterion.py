@@ -17,7 +17,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from nan.dataloaders.basic_dataset import process_fn
+from nan.dataloaders.basic_dataset import de_linearize
 from nan.utils.general_utils import TINY_NUMBER
 from nan.losses import l2_loss, l1_loss, gen_loss
 from nan.utils.eval_utils import ssim_loss
@@ -43,8 +43,8 @@ class RGBCriterion(nn.Module):
         gt_rgb    = ray_batch['rgb']
 
         if self.args.process_loss:
-            pred_rgb = process_fn(pred_rgb, ray_batch['white_level'])
-            gt_rgb   = process_fn(gt_rgb,   ray_batch['white_level'])
+            pred_rgb = de_linearize(pred_rgb, ray_batch['white_level'])
+            gt_rgb   = de_linearize(gt_rgb, ray_batch['white_level'])
 
         loss = self.loss_fn(pred_rgb, gt_rgb, pred_mask)
         scalars_to_log[self.name] = loss
