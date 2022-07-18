@@ -258,7 +258,7 @@ class RayRender:
 
         return outputs
 
-    def calc_featmaps(self, src_rgbs):  # TODO change calls to pass src_rgbs on self.device
+    def calc_featmaps(self, src_rgbs):  
         if self.model.pre_net is not None:
             src_rgbs = self.model.pre_net(src_rgbs.squeeze(0).permute(0, 3, 1, 2)).permute(
                 # TODO redundant permute calls

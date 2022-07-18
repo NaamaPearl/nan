@@ -15,24 +15,16 @@
 from pathlib import Path
 import imageio
 import numpy as np
-import torch
 
-from eval.slideshow import slider_show, slider_show_rgb_ray
+from eval.slideshow import slider_show_rgb_ray
 from nan.dataloaders.basic_dataset import de_linearize, de_linearize_np
 from nan.dataloaders.data_utils import to_uint
-from nan.utils.general_utils import TINY_NUMBER
 from nan.utils.io_utils import tuple_str
-from eval.init_eval import init_eval
-from nan.render_ray import RayRender
 from nan.raw2output import RaysOutput
-from nan.sample_ray import RaySampler
 from visualizing.plotting import *
 
 plt.rcParams["axes.prop_cycle"] = mpl.cycler(
     color=["darkorchid", "darkorange", "lightskyblue", "dodgerblue", "mediumblue"])
-
-
-# os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 
 def extract_per_pixel(output: RaysOutput, pixel):
@@ -257,49 +249,3 @@ def analyze_per_pixel(ret, data, save_pixel_list, res_dir: Path, show=True):
             plt.savefig(rays_exp_dir / f"kernel_nor_by_sum_{tuple_str(save_pixel)}_{z_fine_idx}.png")
         plt.close('all')
 
-    print('')
-
-
-def evaluate_rays(add_args, differ_args):
-    test_loader, scene, res_dir, eval_args, model = init_eval(add_args, open_dir=False, differ_from_train_args=differ_args)
-    if scene == 'fern':
-        save_pixel = ((271, 926), (350, 69), (558, 339))
-    elif scene == 'orchids':
-        save_pixel = ((392, 353), (300, 700))
-    elif scene == 'trex':
-        save_pixel = ((387, 411), (300, 700))
-    elif scene == 'horns':
-        save_pixel = ((392, 353), (362, 187))
-    elif scene == 'flower':
-        save_pixel = ((392, 353), (362, 187))
-    elif scene == 'fortress':
-        save_pixel = ((392, 353), (362, 187))
-    elif scene == 'leaves':
-        # save_pixel = ((392, 353), (362, 187))
-        save_pixel = ((35, 35),)
-    elif scene == 'room':
-        save_pixel = ((392, 353), (362, 187))
-    else:
-        return
-
-    # if scene == 'fern':
-    #     save_pixel = ((274, 440), (254, 945), (289, 158), (350, 69), (558, 339), (446, 527), (271, 926), (499, 279))
-    # elif scene == 'flower':
-    #     save_pixel = ((185, 478), (498, 194), (454, 567))
-    # else:
-    #     save_pixel = ((392, 353),(387, 411), (362, 187))
-    device = torch.device(f'cuda:{eval_args.local_rank}')
-    ray_render = RayRender(model=model, args=eval_args, device=device, save_pixel=save_pixel)
-    loader_iter = iter(test_loader)
-    # _ = next(loader_iter)
-    data = next(loader_iter)
-    model.switch_to_eval()
-    with torch.no_grad():
-        ray_sampler = RaySampler(data, device=device)
-        src_rgbs, featmaps = ray_render.calc_featmaps(src_rgbs=ray_sampler.src_rgbs)
-        ray_batch = ray_sampler.sample_ray_batch_from_pixel(save_pixel)
-        ret = ray_render.render_batch(ray_batch, src_rgbs, featmaps,
-                                      ray_sampler.src_rgbs.to(device),
-                                      ray_sampler.sigma_estimate.to(device))
-
-        analyze_per_pixel(ret, data, save_pixel, res_dir, show=False)

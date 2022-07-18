@@ -12,6 +12,17 @@ from nan.utils.io_utils import print_link, open_file_explorer
 
 
 def rearrange_args_for_eval(additional_eval_args, differ_from_train_args):
+    """
+    Creating params for eval.
+    If same=True, model params should be set by the config in the training folder,
+    but some rendering options are set by the eval config, additional_eval_args and differ_from_train_args.
+
+    @param additional_eval_args: arguments that are specifically asked to be different from the train config.
+    Practically, only contain eval_scene, but can contain every argument from the config.
+    @param differ_from_train_args: arguments that are specifically asked to be different from the train config.
+    Will appear on the eval dir name.
+    @return:
+    """
     if differ_from_train_args is None:
         differ_from_train_args = []
     if additional_eval_args is None:
@@ -98,7 +109,7 @@ def init_eval(additional_eval_args=None, open_dir=True, differ_from_train_args=N
     res_dir.mkdir(exist_ok=True, parents=True)
 
     # printing..
-    print_link(res_dir, "saving results to", '...')
+    print_link(res_dir, "Saving results to", '...')
     if open_dir:
         open_file_explorer(res_dir)
 

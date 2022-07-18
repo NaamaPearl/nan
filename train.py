@@ -79,7 +79,7 @@ def main():
             # Additional args which differ from the training scheme should be set here. (factor is the image resolution)
             # init_eval.py create the evaluation params from the training params
             eval_additional_args = [('factor', 4), ('eval_gain', gain)]
-            eval_multi_scenes(last_ckpt, differ_from_train_args=eval_additional_args)
+            eval_multi_scenes(ckpt=last_ckpt, differ_from_train_args=eval_additional_args)
         summary_multi_gains({last_ckpt.parent.name: (last_ckpt.parent.name, '')})
 
 

@@ -1,6 +1,6 @@
 # exps lists
 
-LLFF_SCENES_LIST = [
+LLFF_SCENES_LIST = (
     'fern',
     'orchids',
     'flower',
@@ -9,4 +9,4 @@ LLFF_SCENES_LIST = [
     'room',
     'trex',
     'fortress'
-]
+)

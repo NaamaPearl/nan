@@ -16,28 +16,24 @@ import sys
 from configs.global_setting import DEFAULT_GAIN_LIST
 from configs.local_setting import EVAL_CONFIG
 from eval.image_evaluator import SceneEvaluator
-from eval.evaluate_rays import evaluate_rays
 from eval.experiment_list import LLFF_SCENES_LIST
 from nan.utils.io_utils import print_link
 
 
 # TODO Naama create default evaluation config
-def eval_multi_scenes(ckpt=None, differ_from_train_args=None, scene_list=None, rerun=True, post='', images=True, rays=True):
-    if scene_list is None:
-        scene_list = LLFF_SCENES_LIST
-    if differ_from_train_args is None:
-        differ_from_train_args = []
+def eval_multi_scenes(ckpt=None, differ_from_train_args=(), scene_list=LLFF_SCENES_LIST, rerun=True, post='',
+                      eval_images=True, eval_rays=True):
     for scene in scene_list:
         additional_eval_args = ['--eval_scenes', scene]
         if ckpt is not None:
             additional_eval_args += ['--ckpt_path', str(ckpt)]
 
-        if images:
-            print("********** evaluate images ***********")
-            SceneEvaluator.scene_evaluation(additional_eval_args, differ_from_train_args, rerun, post=post)
-        if rays:
-            print("********** evaluate rays   ***********")
-            evaluate_rays(additional_eval_args, differ_from_train_args)
+        SceneEvaluator.scene_evaluation(add_args=additional_eval_args,
+                                        differ_args=differ_from_train_args,
+                                        rerun=rerun,
+                                        post=post,
+                                        eval_images=eval_images,
+                                        eval_rays=eval_rays)
 
 
 def main():
@@ -56,4 +52,3 @@ def main():
 if __name__ == '__main__':
     sys.argv += ['--config', str(EVAL_CONFIG)]
     main()
-

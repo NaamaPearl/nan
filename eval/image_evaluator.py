@@ -8,11 +8,13 @@ import numpy as np
 import torch
 import time
 
+from eval.evaluate_rays import analyze_per_pixel
 from eval.init_eval import init_eval
 from nan.dataloaders.basic_dataset import de_linearize
 from nan.dataloaders.data_utils import to_uint
 from nan.raw2output import RaysOutput
 from nan.render_image import render_single_image
+from nan.render_ray import RayRender
 from nan.sample_ray import RaySampler
 from nan.utils.eval_utils import SSIM, img2psnr
 from nan.utils.geometry_utils import warp_KRt_wrapper
@@ -67,7 +69,9 @@ class Summary:
 
 
 class SceneEvaluator:
-    def __init__(self, additional_eval_args, differ_args, rerun=True, post=''):
+    def __init__(self, additional_eval_args, differ_args, rerun=True, post='', eval_images=True, eval_rays=True):
+        self.eval_rays = eval_rays
+        self.eval_images = eval_images
         self.rerun = rerun
         self.post = post
         self.summary_obj_dict: Dict[str, Summary] = {'coarse': Summary(), 'fine': Summary()}
@@ -91,8 +95,8 @@ class SceneEvaluator:
         return f"running mean coarse: {self.coarse_sum}\nrunning mean fine:{self.fine_sum}"
 
     @classmethod
-    def scene_evaluation(cls, add_args, differ_args, rerun=True, post=''):
-        evaluator = cls(add_args, differ_args, rerun, post)
+    def scene_evaluation(cls, add_args, differ_args, rerun=True, post='', eval_images=True, eval_rays=True):
+        evaluator = cls(add_args, differ_args, rerun, post, eval_images=True, eval_rays=True)
         return evaluator.start_scene_evaluation()
 
     def start_scene_evaluation(self):
@@ -163,19 +167,13 @@ class SceneEvaluator:
         with torch.no_grad():
             ray_sampler = RaySampler(data, device=self.device, render_stride=self.eval_args.render_stride)
 
-        if self.rerun:
-            self.save_input(data, file_id)
+        if self.eval_images:
+            print("********** evaluate images ***********")
+            self.evaluate_images(data, ray_sampler, file_id)
 
-            with torch.no_grad():
-                start = time.time()
-                rays_output = render_single_image(ray_sampler=ray_sampler, model=self.model, args=self.eval_args)
-                process_time = time.time() - start
-                self.summary_obj_dict['fine'].process_time.append(process_time)
-                self.summary_obj_dict['coarse'].process_time.append(process_time) # TODO Naama don't really need this
-        else:
-            rays_output, process_time = self.load_results(file_id)
-
-        self.sum_burst_output(data, rays_output, file_id, ray_sampler)
+        if self.eval_rays:
+            print("********** evaluate rays   ***********")
+            self.evaluate_rays(data, ray_sampler)
 
     def save_input(self, data, file_id):
         src_rgbs = data['src_rgbs'][0].cpu().numpy()
@@ -296,6 +294,60 @@ class SceneEvaluator:
             merged_dict[key].update(fine_dict[key])
             merged_dict[key]['processed_time'] = merged_dict[key].pop('processed_time')
         return {self.scene_name: merged_dict}
+
+    def evaluate_rays(self, data, ray_sampler):
+        """
+        Method for debug processing of rays of specific pixels
+        @param data: burst data.
+        @return:
+        """
+        # Only for llff test dataset. Should work for every dataset
+        if self.scene_name == 'fern':
+            save_pixel = ((271, 926), (350, 69), (558, 339))
+        elif self.scene_name == 'orchids':
+            save_pixel = ((392, 353), (300, 700))
+        elif self.scene_name == 'trex':
+            save_pixel = ((387, 411), (300, 700))
+        elif self.scene_name == 'horns':
+            save_pixel = ((392, 353), (362, 187))
+        elif self.scene_name == 'flower':
+            save_pixel = ((392, 353), (362, 187))
+        elif self.scene_name == 'fortress':
+            save_pixel = ((392, 353), (362, 187))
+        elif self.scene_name == 'leaves':
+            save_pixel = ((35, 35),)
+        elif self.scene_name == 'room':
+            save_pixel = ((392, 353), (362, 187))
+        else:
+            return
+
+        ray_render = RayRender(model=self.model, args=self.eval_args, device=self.device, save_pixel=save_pixel)
+        self.model.switch_to_eval()
+        with torch.no_grad():
+            org_src_rgbs = ray_sampler.src_rgbs.to(self.device)
+            proc_src_rgbs, featmaps = ray_render.calc_featmaps(src_rgbs=org_src_rgbs)
+            ray_batch_in = ray_sampler.sample_ray_batch_from_pixel(save_pixel)
+            ray_batch_out = ray_render.render_batch(ray_batch=ray_batch_in, proc_src_rgbs=proc_src_rgbs,
+                                                    featmaps=featmaps,
+                                                    org_src_rgbs=org_src_rgbs,
+                                                    sigma_estimate=ray_sampler.sigma_estimate.to(self.device))
+
+            analyze_per_pixel(ray_batch_out, data, save_pixel, self.res_dir, show=False)
+
+    def evaluate_images(self, data, ray_sampler, file_id):
+        if self.rerun:
+            self.save_input(data, file_id)
+
+            with torch.no_grad():
+                start = time.time()
+                rays_output = render_single_image(ray_sampler=ray_sampler, model=self.model, args=self.eval_args)
+                process_time = time.time() - start
+                self.summary_obj_dict['fine'].process_time.append(process_time)
+                self.summary_obj_dict['coarse'].process_time.append(process_time)  # TODO Naama don't really need this
+        else:
+            rays_output, process_time = self.load_results(file_id)
+
+        self.sum_burst_output(data, rays_output, file_id, ray_sampler)
 
 
 def save_results(results_dict, fpath):
