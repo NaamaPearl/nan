@@ -85,7 +85,9 @@ def init_eval(additional_eval_args=None, open_dir=True, differ_from_train_args=N
         model = NANScheme(eval_args)
 
     # dataloader
-    test_dataset: NoiseDataset = dataset_dict[eval_args.eval_dataset](eval_args, Mode.test, scenes=eval_args.eval_scenes)
+    test_dataset: NoiseDataset = dataset_dict[eval_args.eval_dataset](args=eval_args,
+                                                                      mode=Mode.test,
+                                                                      scenes=eval_args.eval_scenes)
     test_loader = DataLoader(test_dataset, batch_size=1)
 
     # scene

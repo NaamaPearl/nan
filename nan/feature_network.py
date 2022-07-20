@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from typing import Any
 
 import torch
 import torch.nn as nn
@@ -40,7 +41,7 @@ class BasicBlock(nn.Module):
 
     def __init__(self, inplanes, planes, stride=1, downsample=None, groups=1,
                  base_width=64, dilation=1, norm_layer=None):
-        super(BasicBlock, self).__init__()
+        super().__init__()
         if norm_layer is None:
             norm_layer = nn.BatchNorm2d
         if groups != 1 or base_width != 64:
@@ -78,7 +79,7 @@ class BasicBlock(nn.Module):
 class Bottleneck(nn.Module):
     # Bottleneck in torchvision places the stride for downsampling at 3x3 convolution(self.conv2)
     # while original implementation places the stride at the first 1x1 convolution(self.conv1)
-    # according to "Deep residual learning for image recognition"https://arxiv.org/abs/1512.03385.
+    # according to "Deep residual learning for image recognition" https://arxiv.org/abs/1512.03385.
     # This variant is also known as ResNet V1.5 and improves accuracy according to
     # https://ngc.nvidia.com/catalog/model-scripts/nvidia:resnet_50_v1_5_for_pytorch.
 
@@ -86,7 +87,7 @@ class Bottleneck(nn.Module):
 
     def __init__(self, inplanes, planes, stride=1, downsample=None, groups=1,
                  base_width=64, dilation=1, norm_layer=None):
-        super(Bottleneck, self).__init__()
+        super().__init__()
         if norm_layer is None:
             norm_layer = nn.BatchNorm2d
         width = int(planes * (base_width / 64.)) * groups
@@ -124,9 +125,9 @@ class Bottleneck(nn.Module):
         return out
 
 
-class conv(nn.Module):
+class Conv(nn.Module):
     def __init__(self, num_in_layers, num_out_layers, kernel_size, stride):
-        super(conv, self).__init__()
+        super().__init__()
         self.kernel_size = kernel_size
         self.conv = nn.Conv2d(num_in_layers,
                               num_out_layers,
@@ -140,11 +141,11 @@ class conv(nn.Module):
         return F.elu(self.bn(self.conv(x)), inplace=True)
 
 
-class upconv(nn.Module):
+class Upconv(nn.Module):
     def __init__(self, num_in_layers, num_out_layers, kernel_size, scale):
-        super(upconv, self).__init__()
+        super().__init__()
         self.scale = scale
-        self.conv = conv(num_in_layers, num_out_layers, kernel_size, 1)
+        self.conv = Conv(num_in_layers, num_out_layers, kernel_size, 1)
 
     def forward(self, x):
         x = nn.functional.interpolate(x, scale_factor=self.scale, align_corners=True, mode='bilinear')
@@ -160,7 +161,7 @@ class ResUNet(nn.Module):
                  coarse_only=False
                  ):
 
-        super(ResUNet, self).__init__()
+        super().__init__()
         assert encoder in ['resnet18', 'resnet34', 'resnet50', 'resnet101', 'resnet152'], "Incorrect encoder type"
         if encoder in ['resnet18', 'resnet34']:
             filters = [64, 128, 256, 512]
@@ -196,10 +197,10 @@ class ResUNet(nn.Module):
                                        dilate=replace_stride_with_dilation[1])
 
         # decoder
-        self.upconv3 = upconv(filters[2], 128, 3, 2)
-        self.iconv3 = conv(filters[1] + 128, 128, 3, 1)
-        self.upconv2 = upconv(128, 64, 3, 2)
-        self.iconv2 = conv(filters[0] + 64, out_ch, 3, 1)
+        self.upconv3 = Upconv(filters[2], 128, 3, 2)
+        self.iconv3 = Conv(filters[1] + 128, 128, 3, 1)
+        self.upconv2 = Upconv(128, 64, 3, 2)
+        self.iconv2 = Conv(filters[0] + 64, out_ch, 3, 1)
 
         # fine-level conv
         self.out_conv = nn.Conv2d(out_ch, out_ch, 1, 1)
@@ -217,9 +218,8 @@ class ResUNet(nn.Module):
                 norm_layer(planes * block.expansion, track_running_stats=False, affine=True),
             )
 
-        layers = []
-        layers.append(block(self.inplanes, planes, stride, downsample, self.groups,
-                            self.base_width, previous_dilation, norm_layer))
+        layers = [block(self.inplanes, planes, stride, downsample, self.groups,
+                        self.base_width, previous_dilation, norm_layer)]
         self.inplanes = planes * block.expansion
         for _ in range(1, blocks):
             layers.append(block(self.inplanes, planes, groups=self.groups,
@@ -228,12 +228,12 @@ class ResUNet(nn.Module):
 
         return nn.Sequential(*layers)
 
-    def skipconnect(self, x1, x2):
-        diffY = x2.size()[2] - x1.size()[2]
-        diffX = x2.size()[3] - x1.size()[3]
+    @staticmethod
+    def skipconnect(x1, x2):
+        diff_y = x2.size()[2] - x1.size()[2]
+        diff_x = x2.size()[3] - x1.size()[3]
 
-        x1 = F.pad(x1, (diffX // 2, diffX - diffX // 2,
-                        diffY // 2, diffY - diffY // 2))
+        x1 = F.pad(x1, [diff_x // 2, diff_x - diff_x // 2, diff_y // 2, diff_y - diff_y // 2])
 
         # for padding issues, see
         # https://github.com/HaiyongJiang/U-Net-Pytorch-Unstructured-Buggy/commit/0e854509c2cea854e247a9c615f175f76fbb2e3a

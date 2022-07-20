@@ -20,8 +20,22 @@ from nan.utils.eval_utils import SSIM, img2psnr
 from nan.utils.geometry_utils import warp_KRt_wrapper
 
 
+lpips_fn = lpips.LPIPS(net='alex').double()
+ssim_fn = SSIM(window_size=11)
+psnr_fn = img2psnr
+
+
+def calculate_metrics(pred_rgb, gt_rgb):
+    pred_rgb_clamp = pred_rgb.clamp(min=0., max=1.).permute((2, 0, 1)).unsqueeze(0)
+    gt_rgb_for_loss = gt_rgb.permute((2, 0, 1)).unsqueeze(0)
+    ssim_val = ssim_fn(img1=pred_rgb_clamp, img2=gt_rgb_for_loss).item()
+    psnr_val = psnr_fn(x=pred_rgb_clamp, y=gt_rgb_for_loss).item()
+    lpips_val = lpips_fn(in0=pred_rgb_clamp, in1=gt_rgb_for_loss).item()
+    return psnr_val, ssim_val, lpips_val
+
+
 class Data(List):
-    def update(self, new, i):
+    def update(self, new):
         self.append(new)
 
     def mean(self):
@@ -53,7 +67,7 @@ class Summary:
     def results_dict(self, level):
         return {self.file_id[i]: self.single_dict(i, level) for i in range(len(self.psnr))}
 
-    def mean_dict(self, total_num, level):
+    def mean_dict(self, level):
         result_dict = {f'{level}_mean_psnr' : self.psnr.mean(),
                        f'{level}_mean_ssim' : self.ssim.mean(),
                        f'{level}_mean_lpips': self.lpips.mean(),
@@ -65,10 +79,27 @@ class Summary:
         return result_dict
 
     def __str__(self):
-        return f"psnr: {self.psnr.running_mean:03f}, ssim: {self.ssim.running_mean:03f} \n"
+        return f"psnr: {self.psnr.mean():03f}, ssim: {self.ssim.mean():03f} \n"
+
+
+def get_table_fmt(width, column, float_fmt):
+    return ' | '.join([f'{{:{width}}}'] + [f'{{:{width}{float_fmt}}}'] * column)
+
+
+def get_separator(fmt, width, column):
+    return fmt.format(*['-' * width for _ in [width] * (column + 1 + 4)])
+
+
+TABLE_WIDTH = 15
+TABLE_COLUMN = 9
+FLOAT_FMT = get_table_fmt(TABLE_WIDTH, TABLE_COLUMN, '.4f')
+STRING_FMT = get_table_fmt(TABLE_WIDTH, TABLE_COLUMN, '')
+SEPARATOR = get_separator(STRING_FMT, TABLE_WIDTH, TABLE_COLUMN)
 
 
 class SceneEvaluator:
+    CMAP = plt.get_cmap('jet')
+
     def __init__(self, additional_eval_args, differ_args, rerun=True, post='', eval_images=True, eval_rays=True):
         self.eval_rays = eval_rays
         self.eval_images = eval_images
@@ -95,27 +126,25 @@ class SceneEvaluator:
         return f"running mean coarse: {self.coarse_sum}\nrunning mean fine:{self.fine_sum}"
 
     @classmethod
-    def scene_evaluation(cls, add_args, differ_args, rerun=True, post='', eval_images=True, eval_rays=True):
-        evaluator = cls(add_args, differ_args, rerun, post, eval_images=True, eval_rays=True)
+    def scene_evaluation(cls, add_args, differ_args, rerun=True, post='', eval_images=True, eval_rays=True):  # TODO move images, rays to args
+        evaluator = cls(add_args, differ_args, rerun, post, eval_images=eval_images, eval_rays=eval_rays)
         return evaluator.start_scene_evaluation()
 
     def start_scene_evaluation(self):
         for i, data in enumerate(self.test_loader):
             self.evaluate_single_burst(data)
 
-        total_num = len(self.test_loader)
-
         sum_results_dict = {self.scene_name: {}}
-        sum_results_dict[self.scene_name].update(self.coarse_sum.mean_dict(total_num, 'coarse'))
-        sum_results_dict[self.scene_name].update(self.fine_sum.mean_dict(total_num, 'fine'))
+        sum_results_dict[self.scene_name].update(self.coarse_sum.mean_dict('coarse'))
+        sum_results_dict[self.scene_name].update(self.fine_sum.mean_dict('fine'))
 
         if self.eval_args.eval_dataset != 'usfm':
             filename = f'{self.post}psnr_{self.scene_name}_{self.model.start_step}'
             results_dict = self.get_all_results_dict()
-            save_results(results_dict, self.res_dir.parent / f'{filename}.npy')
-            print_result(self.res_dir.parent, results_dict, sum_results_dict, step=self.model.start_step, f=None)
+            self.save_results(results_dict, self.res_dir.parent / f'{filename}.npy')
+            self.print_result(results_dict, sum_results_dict, f=None)
             with open(str(self.res_dir.parent / f"{filename}.txt"), "w") as f:
-                print_result(self.res_dir.parent, results_dict, sum_results_dict, step=self.model.start_step, f=f)
+                self.print_result(results_dict, sum_results_dict, f=f)
 
     def sum_burst_output(self, data, rays_output, file_id, ray_sampler):
         # process ground truth
@@ -212,7 +241,7 @@ class SceneEvaluator:
     def process_gt(self, data, ray_sampler):
         if 'rgb_clean' in data:
             gt_rgb = data['rgb_clean'][0][::ray_sampler.render_stride, ::ray_sampler.render_stride]
-            # always process rgb, since it came from dataloader which perform unprocess
+            # always process rgb, since it came from dataloader which perform unprocessing
             # same idea as "Unprocessing Images for Learned Raw Denoising"
 
             if self.eval_args.process_output:
@@ -229,7 +258,7 @@ class SceneEvaluator:
         # error map
         if gt_rgb is not None:
             err_map = (((pred_rgb - gt_rgb) ** 2).sum(-1).clamp(0, 1) ** (1 / 3)).numpy()
-            err_map_colored = to_uint(cmap_jet(err_map)[..., :3])
+            err_map_colored = to_uint(self.CMAP(err_map)[..., :3])
             imageio.imwrite(str(self.res_dir / f"{file_id}_err_map_{level}.png"), err_map_colored, 'PNG-FI')
 
         # predicted rgb
@@ -238,7 +267,7 @@ class SceneEvaluator:
 
         # accuracy map
         acc_map = torch.sum(rays_output[level].weights, dim=-1).detach().cpu()
-        acc_map_colored = to_uint(cmap_jet(acc_map)[..., :3])
+        acc_map_colored = to_uint(self.CMAP(acc_map)[..., :3])
         imageio.imwrite(str(self.res_dir / f"{file_id}_acc_map_{level}.png"), acc_map_colored, 'PNG-FI')
 
         # predicted depth (depth error is saved under calc_depth)
@@ -247,23 +276,23 @@ class SceneEvaluator:
 
         depth_range = data['depth_range']
         norm_depth = plt.Normalize(vmin=depth_range.squeeze()[0], vmax=depth_range.squeeze()[1])
-        pred_depth_colored = to_uint(cmap_jet(norm_depth(pred_depth))[..., :3])
+        pred_depth_colored = to_uint(self.CMAP(norm_depth(pred_depth))[..., :3])
         imageio.imwrite(str(self.res_dir / f"{file_id}_depth_vis_{level}.png"), pred_depth_colored, 'PNG-FI')
 
         # warp images
         if ray_sampler.render_stride == 1:
-            warped_img_rgb = warped_images_by_depth(rays_output[level], data, self.device)
+            warped_img_rgb = self.warped_images_by_depth(rays_output[level], data)
             if self.rerun and self.eval_args.process_output:
                 warped_img_rgb = de_linearize(warped_img_rgb, data['white_level'])
             if self.eval_args.eval_dataset == 'usfm':
                 warped_img_rgb = warped_img_rgb * data['white_level']
             imageio.imwrite(str(self.res_dir / f"{file_id}_warped_images_{level}.png"), warped_img_rgb, 'PNG-FI')
 
-            res_image = np.concatenate((pred_rgb, warped_img_rgb, pred_depth_colored), axis=1)
+            summary_image = np.concatenate((pred_rgb, warped_img_rgb, pred_depth_colored), axis=1)
         else:
-            res_image = np.concatenate((pred_rgb, pred_depth_colored), axis=1)
+            summary_image = np.concatenate((pred_rgb, pred_depth_colored), axis=1)
 
-        imageio.imwrite(str(self.res_dir / f"{file_id}_sum_{level}.png"), res_image, 'PNG-FI')
+        imageio.imwrite(str(self.res_dir / f"{file_id}_sum_{level}.png"), summary_image, 'PNG-FI')
 
     def depth_evaluation(self, rays_output, data, level, file_id):
         depth_range = data['depth_range']
@@ -298,6 +327,7 @@ class SceneEvaluator:
     def evaluate_rays(self, data, ray_sampler):
         """
         Method for debug processing of rays of specific pixels
+        @param ray_sampler:
         @param data: burst data.
         @return:
         """
@@ -349,76 +379,37 @@ class SceneEvaluator:
 
         self.sum_burst_output(data, rays_output, file_id, ray_sampler)
 
+    def print_result(self, results_dict, sum_results_dict, f):
+        for scene, scene_dict in results_dict.items():
+            print(f"{self.res_dir.parent.parent.parent.name}", file=f)
+            print(f"{scene}, {self.model.start_step}", file=f)
 
-def save_results(results_dict, fpath):
-    assert len(results_dict) == 1
-    results_dict = list(results_dict.values())[0]
-    res = np.array([[v for v in im_res.values()] for (image, im_res) in results_dict.items()])
-    np.save(fpath, res)
+            for i, (k, v) in enumerate(scene_dict.items()):
+                if i == 0:
+                    # print title
+                    print(STRING_FMT.format('file_id', *v.keys()), file=f)
+                    print(SEPARATOR, file=f)
+                print(FLOAT_FMT.format(k, *v.values()), file=f)
+                print(SEPARATOR, file=f)
 
+            print(SEPARATOR, file=f)
+            print(FLOAT_FMT.format('mean', *sum_results_dict[scene].values()), file=f)
+            print(SEPARATOR, file=f)
 
-TABLE_WIDTH = 15
-TABLE_COLUMN = 9
+    @staticmethod
+    def save_results(results_dict, fpath):
+        assert len(results_dict) == 1
+        results_dict = list(results_dict.values())[0]
+        res = np.array([[v for v in im_res.values()] for (image, im_res) in results_dict.items()])
+        np.save(fpath, res)
 
-
-def get_float_fmt(width, column):
-    return ' | '.join([f'{{:{width}}}'] + [f'{{:{width}.4f}}'] * column)
-
-
-def get_string_fmt(width, column):
-    return ' | '.join([f'{{:{width}}}'] + [f'{{:{width}}}'] * column)
-
-
-def get_separator(fmt, width, column):
-    return fmt.format(*['-' * width for _ in [width] * (column + 1 + 4)])
-
-
-float_fmt = get_float_fmt(TABLE_WIDTH, TABLE_COLUMN)
-string_fmt = get_string_fmt(TABLE_WIDTH, TABLE_COLUMN)
-separator = get_separator(string_fmt, TABLE_WIDTH, TABLE_COLUMN)
-
-
-def print_result(extra_out_dir, results_dict, sum_results_dict, step, f):
-    for scene, scene_dict in results_dict.items():
-        print(f"{extra_out_dir.parent.parent.name}", file=f)
-        print(f"{scene}, {step}", file=f)
-
-        for i, (k, v) in enumerate(scene_dict.items()):
-            if i == 0:
-                # print title
-                print(string_fmt.format('file_id', *v.keys()), file=f)
-                print(separator, file=f)
-            print(float_fmt.format(k, *v.values()), file=f)
-            print(separator, file=f)
-
-        print(separator, file=f)
-        print(float_fmt.format('mean', *sum_results_dict[scene].values()), file=f)
-        print(separator, file=f)
-
-
-lpips_fn = lpips.LPIPS(net='alex').double()
-ssim_fn = SSIM(window_size=11)
-psnr_fn = img2psnr
-
-
-def calculate_metrics(pred_rgb, gt_rgb):
-    pred_rgb_clamp = pred_rgb.clamp(min=0., max=1.).permute((2, 0, 1)).unsqueeze(0)
-    gt_rgb_for_loss = gt_rgb.permute((2, 0, 1)).unsqueeze(0)
-    ssim_val = ssim_fn(img1=pred_rgb_clamp, img2=gt_rgb_for_loss).item()
-    psnr_val = psnr_fn(x=pred_rgb_clamp, y=gt_rgb_for_loss).item()
-    lpips_val = lpips_fn(in0=pred_rgb_clamp, in1=gt_rgb_for_loss).item()
-    return psnr_val, ssim_val, lpips_val
-
-
-cmap_jet = plt.get_cmap('jet')
-
-
-def warped_images_by_depth(output, data, device):
-    depth = output.depth.detach().to(device)
-    Ki = data['src_cameras'][:, :, 2:18].reshape((-1, 4, 4)).unsqueeze(0)
-    Rti = data['src_cameras'][:, :, 18:34].reshape((-1, 4, 4)).unsqueeze(0)
-    images = data['src_rgbs'].permute((0, 1, 4, 2, 3))
-    warped_images = warp_KRt_wrapper(images.to(device), Ki.to(device), Rti.inverse().to(device), 1 / depth)
-    warped_images = warped_images[0].mean(0).permute((1, 2, 0))
-    warped_images_rgb = to_uint(warped_images.cpu().numpy().squeeze())
-    return warped_images_rgb
+    def warped_images_by_depth(self, output, data):
+        depth = output.depth.detach().to(self.device)
+        Ki = data['src_cameras'][:, :, 2:18].reshape((-1, 4, 4)).unsqueeze(0)
+        Rti = data['src_cameras'][:, :, 18:34].reshape((-1, 4, 4)).unsqueeze(0)
+        images = data['src_rgbs'].permute((0, 1, 4, 2, 3))
+        warped_images = warp_KRt_wrapper(images.to(self.device), Ki.to(self.device),
+                                         Rti.inverse().to(self.device), 1 / depth)
+        warped_images = warped_images[0].mean(0).permute((1, 2, 0))
+        warped_images_rgb = to_uint(warped_images.cpu().numpy().squeeze())
+        return warped_images_rgb

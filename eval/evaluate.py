@@ -15,7 +15,7 @@ import sys
 
 from configs.global_setting import DEFAULT_GAIN_LIST
 from configs.local_setting import EVAL_CONFIG
-from eval.image_evaluator import SceneEvaluator
+from eval.scene_evaluator import SceneEvaluator
 from eval.experiment_list import LLFF_SCENES_LIST
 from nan.utils.io_utils import print_link
 
