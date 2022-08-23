@@ -20,7 +20,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from nan.utils.general_utils import TINY_NUMBER
-from nan.transformer import MultiHeadAttention
+from nan.attention import MultiHeadAttention
 
 torch._C._jit_set_profiling_executor(False)
 torch._C._jit_set_profiling_mode(False)
@@ -192,7 +192,7 @@ class NanMLP(nn.Module):
         sigma_out, sigma_globalfeat = self.compute_sigma(x[:, :, 0, 0], vis[:, :, 0, 0], num_valid_obs[:, :, 0, 0])
         x = torch.cat([x, vis, ray_diff], dim=-1)
         rgb_out, w_rgb = self.compute_rgb(x, mask, rgb_in)
-        return rgb_out, sigma_out, w_rgb, rgb_in, sigma_globalfeat  # TODO remove rho parameter from nan mlp output
+        return rgb_out, sigma_out, w_rgb, rgb_in, sigma_globalfeat
 
     def compute_extended_features(self, ray_diff, rgb_feat, mask, num_valid_obs, sigma_est):
         direction_feat = self.ray_dir_fc(ray_diff)  # [n_rays, n_samples, k, k, n_views, 35]
@@ -238,7 +238,7 @@ class NanMLP(nn.Module):
         # positional encoding
         globalfeat = globalfeat + self.pos_encoding
 
-        # ray transformer
+        # ray attention
         globalfeat, _ = self.ray_attention(globalfeat, globalfeat, globalfeat,
                                            mask=num_valid_obs > 1)  # [n_rays, n_samples, 16]
         sigma = self.out_geometry_fc(globalfeat)  # [n_rays, n_samples, 1]
@@ -248,7 +248,7 @@ class NanMLP(nn.Module):
 
     def compute_rgb(self, x, mask, rgb_in):
         x = self.rgb_fc(x)
-        rgb_out, blending_weights_rgb, rho = self.rgb_reduce_fn(x, mask, rgb_in)
+        rgb_out, blending_weights_rgb = self.rgb_reduce_fn(x, mask, rgb_in)
         return rgb_out, blending_weights_rgb
 
     def rgb_reduce_factory(self):
@@ -263,7 +263,7 @@ class NanMLP(nn.Module):
         w = w.permute((0, 1, 3, 4, 2)).unsqueeze(-1)
         blending_weights_valid = softmax3d(w, dim=(2, 3, 4))  # color blending
         rgb_out = torch.sum(rgb_in * blending_weights_valid, dim=(2, 3, 4))
-        return rgb_out, blending_weights_valid, None
+        return rgb_out, blending_weights_valid
 
     @staticmethod
     def expanded_rgb_weighted_rgb_fn(x, mask, rgb_in):
@@ -272,5 +272,5 @@ class NanMLP(nn.Module):
         w = w.permute((0, 1, 3, 4, 2, 5))
         blending_weights_valid = softmax3d(w, dim=(2, 3, 4))  # color blending
         rgb_out = torch.sum(rgb_in * blending_weights_valid, dim=(2, 3, 4))
-        return rgb_out, blending_weights_valid, None
+        return rgb_out, blending_weights_valid
 

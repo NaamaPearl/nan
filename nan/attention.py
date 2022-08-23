@@ -3,7 +3,7 @@ from typing import Any
 from torch import nn as nn
 from torch.nn import functional as F
 
-# TODO Naama Transformer --> attention
+
 class ScaledDotProductAttention(nn.Module):
     """ Scaled Dot-Product Attention """
 

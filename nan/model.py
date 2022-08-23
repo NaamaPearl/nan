@@ -151,6 +151,7 @@ class NANScheme(nn.Module):
     def load_model(self, filename, load_opt=True, load_scheduler=True, init_for_train=False):
         load_dict = torch.load(filename, map_location=torch.device(f'cuda:{self.args.local_rank}'))
         if 'model' not in load_dict:
+            # for old version of ckpt
             load_dict = self.convert_state_to_model(load_dict)
 
         model_dict = load_dict['model'].copy()
@@ -187,15 +188,15 @@ class NANScheme(nn.Module):
                 raise RuntimeError
             new_model_dict = net.state_dict()
 
-            # 1. filter out unnecessary keys   # TODO Naama check what is still relevant here
+            # 1. filter of weights with shape mismatch
             for pre_k, pre_v in pretrained_dict.items():
                 if pre_k in new_model_dict:
                     new_v = new_model_dict[pre_k]
                     if new_v.shape == pre_v.shape:
                         new_model_dict[pre_k] = new_v
                     else:
-                        a=1
                         pass
+                        # if we want to load partial layers, it can be done with:
                         # new_model_dict[pre_k][torch.where(torch.ones_like(new_v))] = new_v.view(-1).clone()
             # 3. load the new state dict
             net.load_state_dict(new_model_dict)

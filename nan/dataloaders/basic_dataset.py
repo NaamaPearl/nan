@@ -134,12 +134,13 @@ class BurstDataset(Dataset, ABC):
 class NoiseDataset(BurstDataset, ABC):
     def __init__(self, args, mode, **kwargs):
         super().__init__(args, mode, **kwargs)
-        if mode == Mode.train and type(self.args.std) is not int:
+        if mode == Mode.train:
+            assert len(self.args.std) == 4
             self.get_noise_params = self.get_noise_params_train
         else:
             if self.args.eval_gain == 0:
                 sig_read, sig_shot = 0, 0
-                print(f"Loading {mode} set without additional noise.")  # TODO Naama change only for eval?
+                print(f"Loading {mode} set without additional noise.")
             else:
                 # load gain data from KPN paper https://bmild.github.io/kpn/index.html
                 noise_data = np.load(DATA_DIR / 'synthetic_5d_j2_16_noiselevels6_wide_438x202x320x8.npz')
@@ -157,7 +158,7 @@ class NoiseDataset(BurstDataset, ABC):
                 sig_read = 10 ** (log_sig_read[0] + d_read * gain_log)
                 sig_shot = 10 ** (log_sig_shot[0] + d_shot * gain_log)
 
-                print(f"Loading {mode} set for gain {self.args.eval_gain}. "  # TODO Naama change only for eval?
+                print(f"Loading {mode} set for gain {self.args.eval_gain}. "  
                       f"Max std {self.get_std(1, sig_read, sig_shot)}")
 
             def get_noise_params_test():

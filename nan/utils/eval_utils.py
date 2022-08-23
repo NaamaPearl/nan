@@ -78,17 +78,14 @@ def ssim(img1, img2, window_size=13, window=None, size_average=True, full=False,
 
 
 def ssim_loss(rgb1, rgb2, mask=None):
+    if mask is not None:
+        raise NotImplementedError
     crop_size = int(rgb1.shape[-2] ** 0.5)
     img1 = rgb1.reshape((-1, crop_size, crop_size, 3)).permute((0, 3, 1, 2))
     img2 = rgb2.reshape((-1, crop_size, crop_size, 3)).permute((0, 3, 1, 2))
-    mask = mask.reshape((-1, crop_size, crop_size))
 
-    # TODO mask of ssim loss?
     return 1 - ssim(img1, img2, window_size=11)
-    # if mask is None:
-    #     return torch.mean(ssim_loss_map)
-    # else:
-    #     return mean_with_mask(ssim_loss_map, mask)
+
 
 
 # Classes to re-use window

@@ -373,7 +373,7 @@ class SceneEvaluator:
                 rays_output = render_single_image(ray_sampler=ray_sampler, model=self.model, args=self.eval_args)
                 process_time = time.time() - start
                 self.summary_obj_dict['fine'].process_time.append(process_time)
-                self.summary_obj_dict['coarse'].process_time.append(process_time)  # TODO Naama don't really need this
+                self.summary_obj_dict['coarse'].process_time.append(process_time)
         else:
             rays_output, process_time = self.load_results(file_id)
 

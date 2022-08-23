@@ -85,7 +85,6 @@ class RaySampler:
         :param c2w: 4 by 4 camera to world extrinsic matrix
         :return:
         """
-        # TODO switch to kornia.meshgrid
         x, y = np.meshgrid(np.arange(W)[::self.render_stride], np.arange(H)[::self.render_stride])
         x = x.reshape(-1).astype(dtype=np.float32)  # + 0.5    # add half pixel
         y = y.reshape(-1).astype(dtype=np.float32)  # + 0.5

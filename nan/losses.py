@@ -25,4 +25,4 @@ def loss_with_mask(fn, x, y, mask=None):
 
 l2_loss  = partial(loss_with_mask, lambda x, y: (x - y) ** 2)
 l1_loss  = partial(loss_with_mask, lambda x, y: torch.abs(x - y))
-gen_loss = partial(loss_with_mask, lambda x, y: y, 0)  # TODO Naama check if the implementation is good, should lambda return x?
+gen_loss = partial(loss_with_mask, lambda x, y: x, 0)

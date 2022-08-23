@@ -251,7 +251,7 @@ def get_nearest_pose_ids(tar_pose, ref_poses, num_select, tar_id=None, angular_d
     # print(angular_dists[selected_ids] * 180 / np.pi)
     return selected_ids.tolist()
 
+
 def to_uint(im, bits=16):
-    clipped_img = np.clip(im, a_min=0, a_max=1.)
-    return ((2 ** bits - 1) * clipped_img).astype(np.uint16) # TODO
-    # return ((2 ** bits - 1) * (im / im.max())).clip(min=0).astype(np.uint16)
+    im = np.clip(im, a_min=0, a_max=1.)
+    return ((2 ** bits - 1) * im).astype(np.uint16)

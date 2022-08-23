@@ -253,7 +253,7 @@ class RayRender:
                                                           ('w', outputs.weights[idx].cpu()),
                                                           ('w_rgb', debug_info[0][idx].cpu()),
                                                           ('feat', debug_info[1][idx].cpu()),
-                                                          ('globalfeat_transformer', debug_info[2][idx].cpu())])
+                                                          ('globalfeat_attention', debug_info[2][idx].cpu())])
             outputs.debug = debug_dict
 
         return outputs

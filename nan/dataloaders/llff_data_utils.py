@@ -150,7 +150,6 @@ def _load_data(basedir, factor=None, width=None, height=None, load_imgs=True):
     sh = imageio.imread(imgfiles[0]).shape
     poses[:2, 4, :] = np.array(sh[:2]).reshape([2, 1])
     poses[2, 4, :] = poses[2, 4, :] * 1. / factor
-    # poses[2, 4, :] = poses[2, 4, :] * 1. * 4 # TODO !!!!!!!!!!!!!!!!! Naama
 
     def imread(f):
         if f.endswith('png'):

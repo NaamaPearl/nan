@@ -109,8 +109,7 @@ class CustomArgumentParser(configargparse.ArgumentParser):
         # ## others
         parser.add_argument("--testskip", type=int, default=8, help='will load 1/N images from test/val sets, '
                                                                     'useful for large datasets like deepvoxels or '
-                                                                    'nerf_synthetic')  # TODO Naama what is
-        # the difference between testskip and llffhold
+                                                                    'nerf_synthetic')
 
         # ########## model options ##########
         # ## ray sampling options
@@ -148,9 +147,10 @@ class CustomArgumentParser(configargparse.ArgumentParser):
         # ########## checkpoints ##########
         parser.add_argument("--no_reload", action='store_true',
                             help='do not reload weights from saved ckpt')
+        # TODO force_latest_exp has some issues with loading optimizer and scheduler
         parser.add_argument("--force_latest_exp", action='store_true', help='load the latest ckpt')
         parser.add_argument("--ckpt_path", type=Path, default=None,
-                            help='specific weights npy file to reload for coarse network')  # TODO Naama is it just for coarse network?
+                            help='specific weights npy file to reload for network')
         parser.add_argument("--no_load_opt", action='store_true',
                             help='do not load optimizer when reloading')
         parser.add_argument("--no_load_scheduler", action='store_true',
@@ -213,7 +213,10 @@ class CustomArgumentParser(configargparse.ArgumentParser):
 
         # ### burst denoising simulation and training ###
         parser.add_argument("--std", nargs='+', type=float, default=[0],
-                            help='noise parameters for generating simulation. Options: {*single parameter: fixed std}')  # TODO Naama, I think single std value doesn't work anymore
+                            help='noise parameters for generating simulation. This is the log10 of the std limits, '
+                                 'used to generate the noise in training in'
+                                 'nan.dataloaders.basic_dataset.NoiseDataset.get_noise_params_train')
+
         parser.add_argument("--eval_gain", type=int, default=None,
                             help='gain to apply in evaluation')
         parser.add_argument("--include_target", action='store_true',
@@ -268,8 +271,8 @@ class CustomArgumentParser(configargparse.ArgumentParser):
                 print(f"[*] changing sample mode from {args.sample_mode=} to 'crop'")
                 print(f"[*] changing N_rand from {args.N_rand=} to {math.ceil(args.N_rand ** 0.5) ** 2} for patch loss")
             args.N_rand = math.ceil(args.N_rand ** 0.5) ** 2
-            # TODO later it changes to
-            #  N_rand = int(1.0 * self.args.N_rand * self.args.num_source_views / train_data['src_rgbs'][0].shape[0])
+            # This is not exactly the value that will be used, since it change in nan.trainer.Trainer.training_loop to
+            # N_rand = int(1.0 * self.args.N_rand * self.args.num_source_views / train_data['src_rgbs'][0].shape[0])
             args.sample_mode = 'crop'
 
         # kernel size
@@ -278,8 +281,6 @@ class CustomArgumentParser(configargparse.ArgumentParser):
         else:
             args.kernel_size = (1, 1)
 
-        # std
-        # TODO Naama check if single std value still works
         if len(args.std) == 1:
             args.std = args.std[0]
 

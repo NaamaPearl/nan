@@ -39,7 +39,7 @@ def rearrange_args_for_eval(additional_eval_args, differ_from_train_args):
     curr_ckpt_train_args = ['--config', str(eval_args.ckpt_path.parent / "config.yml"),
                             '--ckpt_path', str(eval_args.ckpt_path)]
     if eval_args.force_latest_exp:
-        curr_ckpt_train_args.append('--force_latest_exp')  # TODO need to check that force_latest_exp works
+        curr_ckpt_train_args.append('--force_latest_exp')
     curr_ckpt_train_args = parser.parse_args(args=curr_ckpt_train_args, verbose=False)
     curr_ckpt_train_args.no_reload = False  # make sure to reload the ckpt weights
     curr_ckpt_train_args.local_rank = eval_args.local_rank

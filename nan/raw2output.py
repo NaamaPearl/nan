@@ -29,8 +29,7 @@ class RaysOutput:
         :return: {'rgb': [N_rays, 3], 'depth': [N_rays,], 'weights': [N_rays,], 'depth_std': [N_rays,]}
         """
 
-        # TODO
-        # note: we did not use the intervals here, because in practice different scenes from COLMAP can have
+        # IBRNet note: we did not use the intervals here, because in practice different scenes from COLMAP can have
         # very different scales, and using interval can affect the model's generalization ability.
         # Therefore we don't use the intervals for both training and evaluation.
 
@@ -78,7 +77,7 @@ class RaysOutput:
 
     @classmethod
     def empty_ret(cls):
-        return cls(rgb_map=[], depth_map=[], weights=[], mask=[], alpha=[], z_vals=[], sigma=[], rho=[], debug={})
+        return cls(rgb_map=[], depth_map=[], weights=[], mask=[], alpha=[], z_vals=[], sigma=[], debug={})
 
     def append(self, ret):
         for k, v in ret.__dict__.items():
