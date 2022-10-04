@@ -147,8 +147,7 @@ class CustomArgumentParser(configargparse.ArgumentParser):
         # ########## checkpoints ##########
         parser.add_argument("--no_reload", action='store_true',
                             help='do not reload weights from saved ckpt')
-        # TODO force_latest_exp has some issues with loading optimizer and scheduler
-        parser.add_argument("--force_latest_exp", action='store_true', help='load the latest ckpt')
+        parser.add_argument("--resume_training", action='store_true', help='continue training from latest ckpt')
         parser.add_argument("--ckpt_path", type=Path, default=None,
                             help='specific weights npy file to reload for network')
         parser.add_argument("--no_load_opt", action='store_true',
@@ -314,6 +313,8 @@ class CustomArgumentParser(configargparse.ArgumentParser):
 
         if name.endswith('tar__full__pre__3_3_3__views_attn__noise_feat__l1'):
             return 'NAN'
+        if name.endswith('tar__full__pre__3_3_3__views_attn__noise_feat__l1__DEBUG'):
+            return 'NAN__DEBUG'
         else:
             return name
 

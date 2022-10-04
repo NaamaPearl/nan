@@ -1,1 +1,1 @@
-python train.py --config
+python train.py --resume_training

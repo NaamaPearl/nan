@@ -201,7 +201,7 @@ class NANScheme(nn.Module):
             # 3. load the new state dict
             net.load_state_dict(new_model_dict)
 
-    def load_from_ckpt(self, out_folder: Path, load_opt=True, load_scheduler=True, force_latest_ckpt=False, init_for_train=False):
+    def load_from_ckpt(self, out_folder: Path, load_opt=True, load_scheduler=True, init_for_train=False):
         """
         load model from existing checkpoints and return the current step
         :param out_folder: the directory that stores ckpts
@@ -214,12 +214,15 @@ class NANScheme(nn.Module):
 
         # all existing ckpts
         ckpt = None
-        if out_folder.exists() and force_latest_ckpt:
+
+        if out_folder.exists() and self.args.resume_training:
+            print_link(out_folder, "[*] Resume training looking for ckpt in ")
             ckpt = get_latest_file(out_folder, "*.pth")
 
-        if self.args.ckpt_path is not None and not force_latest_ckpt:
-            if self.args.ckpt_path.exists():  # load the specified ckpt
-                ckpt = self.args.ckpt_path
+        if self.args.ckpt_path is not None and not self.args.resume_training:
+            if not self.args.ckpt_path.exists():  # load the specified ckpt
+                raise FileNotFoundError(f"requested ckpt_path does not exist: {self.args.ckpt_path}")
+            ckpt = self.args.ckpt_path
 
         if ckpt is not None and not self.args.no_reload:
             step = int(ckpt.stem[-6:])

@@ -36,8 +36,8 @@ i_weights                   : 5000
 
 ### additional
 #ckpt_path                   : out/pretrained/model_255000.pth   # use this if you want to train from a specific checkpoint.
-no_load_opt                 : True
-no_load_scheduler           : True
+no_load_opt                 : False
+no_load_scheduler           : False
 sup_clean                   : True
 
 include_target              : True  # set to False if you want to synthesize images rather than denoise the images

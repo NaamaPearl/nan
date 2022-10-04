@@ -60,6 +60,9 @@ def main():
     parser = CustomArgumentParser.config_parser()
     train_args = parser.parse_args(verbose=True)
 
+    for key, value in sorted(vars(train_args).items()):
+        print(f"{key:<30}: {value}")
+
     # Set distributed options
     if train_args.distributed:
         torch.cuda.set_device(train_args.local_rank)
@@ -86,4 +89,5 @@ def main():
 if __name__ == '__main__':
     # Training using the default training config TRAIN_CONFIG
     sys.argv = sys.argv + ['--config', str(TRAIN_CONFIG)]
+    print(sys.argv)
     main()
