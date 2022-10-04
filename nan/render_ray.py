@@ -235,16 +235,15 @@ class RayRender:
         rgb_feat, ray_diff, pts_mask, org_rgb, sigma_est = proj_out
 
         # [N_rays, N_samples, 4]
-        # TODO change name of sigma to rho, like in the paper
         # Process the feature vectors of all 3D points along each ray to predict density and rgb value
-        rgb_out, sigma_out, *debug_info = self.model.mlps[level](rgb_feat, ray_diff,
-                                                                 pts_mask.unsqueeze(-3).unsqueeze(-3),
-                                                                 org_rgb, sigma_est)
+        rgb_out, rho_out, *debug_info = self.model.mlps[level](rgb_feat, ray_diff,
+                                                               pts_mask.unsqueeze(-3).unsqueeze(-3),
+                                                               org_rgb, sigma_est)
 
         # Calculate the pixel mask in the target view, based on the mask of points along the ray
         # TODO check what is going on with the mask calculation inside raw2output
         pixel_mask = pts_mask[..., 0].sum(dim=2) > 1  # [N_rays, N_samples], should at least have 2 observations
-        outputs = RaysOutput.raw2output(rgb_out, sigma_out, z_vals, pixel_mask, white_bkgd=self.white_bkgd)
+        outputs = RaysOutput.raw2output(rgb_out, rho_out, z_vals, pixel_mask, white_bkgd=self.white_bkgd)
 
         if save_idx is not None:
             debug_dict = {}
@@ -258,7 +257,7 @@ class RayRender:
 
         return outputs
 
-    def calc_featmaps(self, src_rgbs):  
+    def calc_featmaps(self, src_rgbs):
         if self.model.pre_net is not None:
             src_rgbs = self.model.pre_net(src_rgbs.squeeze(0).permute(0, 3, 1, 2)).permute(
                 # TODO redundant permute calls

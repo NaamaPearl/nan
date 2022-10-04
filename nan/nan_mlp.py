@@ -51,7 +51,8 @@ def kernel_fused_mean_variance(x, weight):
 
 def softmax3d(x, dim):
     R, S, k, _, V, C = x.shape
-    return nn.functional.softmax(x.reshape((R, S, -1, C)), dim=-2).view(x.shape) ## TODO exchange to pytorch implementation
+    return nn.functional.softmax(x.reshape((R, S, -1, C)), dim=-2).view(
+        x.shape)  ## TODO exchange to pytorch implementation
     exp_x = torch.exp(x)
     return exp_x / (exp_x.sum(dim=dim, keepdim=True) + TINY_NUMBER)
 
@@ -189,14 +190,15 @@ class NanMLP(nn.Module):
         x = x + x_res
         vis = self.vis_fc2(x * vis) * mask
 
-        sigma_out, sigma_globalfeat = self.compute_sigma(x[:, :, 0, 0], vis[:, :, 0, 0], num_valid_obs[:, :, 0, 0])
+        rho_out, rho_globalfeat = self.compute_rho(x[:, :, 0, 0], vis[:, :, 0, 0], num_valid_obs[:, :, 0, 0])
         x = torch.cat([x, vis, ray_diff], dim=-1)
         rgb_out, w_rgb = self.compute_rgb(x, mask, rgb_in)
-        return rgb_out, sigma_out, w_rgb, rgb_in, sigma_globalfeat
+        return rgb_out, rho_out, w_rgb, rgb_in, rho_globalfeat
 
     def compute_extended_features(self, ray_diff, rgb_feat, mask, num_valid_obs, sigma_est):
         direction_feat = self.ray_dir_fc(ray_diff)  # [n_rays, n_samples, k, k, n_views, 35]
-        rgb_feat  = rgb_feat[:, :, self.k_mid:self.k_mid + 1, self.k_mid:self.k_mid + 1] + direction_feat  # [n_rays, n_samples, 1, 1, n_views, 35]
+        rgb_feat = rgb_feat[:, :, self.k_mid:self.k_mid + 1,
+                   self.k_mid:self.k_mid + 1] + direction_feat  # [n_rays, n_samples, 1, 1, n_views, 35]
         feat = rgb_feat
 
         if self.args.views_attn:
@@ -204,7 +206,7 @@ class NanMLP(nn.Module):
             feat, _ = self.views_attention(feat, feat, feat, (num_valid_obs > 1).unsqueeze(-1))
 
         if self.args.noise_feat:
-            feat = torch.cat([feat, sigma_est[:, :, self.k_mid:self.k_mid + 1, self.k_mid:self.k_mid + 1] ], dim=-1)
+            feat = torch.cat([feat, sigma_est[:, :, self.k_mid:self.k_mid + 1, self.k_mid:self.k_mid + 1]], dim=-1)
 
         weight = self.compute_weights(ray_diff, mask)
 
@@ -227,13 +229,13 @@ class NanMLP(nn.Module):
         weight = weight / prod(self.args.kernel_size)
         return weight
 
-    def compute_sigma(self, x, vis, num_valid_obs):
+    def compute_rho(self, x, vis, num_valid_obs):
         weight = vis / (torch.sum(vis, dim=2, keepdim=True) + 1e-8)
 
         mean, var = fused_mean_variance(x, weight)
-        sigma_globalfeat = torch.cat([mean.squeeze(2), var.squeeze(2), weight.mean(dim=2)],
-                                     dim=-1)  # [n_rays, n_samples, 32*2+1]
-        globalfeat = self.geometry_fc(sigma_globalfeat)  # [n_rays, n_samples, 16]
+        rho_globalfeat = torch.cat([mean.squeeze(2), var.squeeze(2), weight.mean(dim=2)],
+                                   dim=-1)  # [n_rays, n_samples, 32*2+1]
+        globalfeat = self.geometry_fc(rho_globalfeat)  # [n_rays, n_samples, 16]
 
         # positional encoding
         globalfeat = globalfeat + self.pos_encoding
@@ -241,10 +243,10 @@ class NanMLP(nn.Module):
         # ray attention
         globalfeat, _ = self.ray_attention(globalfeat, globalfeat, globalfeat,
                                            mask=num_valid_obs > 1)  # [n_rays, n_samples, 16]
-        sigma = self.out_geometry_fc(globalfeat)  # [n_rays, n_samples, 1]
-        sigma_out = sigma.masked_fill(num_valid_obs < 1, 0.)  # set the sigma of invalid point to zero
+        rho = self.out_geometry_fc(globalfeat)  # [n_rays, n_samples, 1]
+        rho_out = rho.masked_fill(num_valid_obs < 1, 0.)  # set the rho of invalid point to zero
 
-        return sigma_out, sigma_globalfeat
+        return rho_out, rho_globalfeat
 
     def compute_rgb(self, x, mask, rgb_in):
         x = self.rgb_fc(x)
@@ -273,4 +275,3 @@ class NanMLP(nn.Module):
         blending_weights_valid = softmax3d(w, dim=(2, 3, 4))  # color blending
         rgb_out = torch.sum(rgb_in * blending_weights_valid, dim=(2, 3, 4))
         return rgb_out, blending_weights_valid
-

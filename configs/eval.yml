@@ -1,7 +1,6 @@
 ### INPUT
 
-# TODO Naama create default evaluation config
-ckpt_path     : D:\Naama\Documents\Projects\nan\out\unproc_gamma_wl____full__pre__expand_rgb_3_3_3__blend_src__views_attn__noise_feat__l1\model_255000.pth
+ckpt_path     : /home/npearl/Documents/PycharmProjects/nan/out/reproduce__NAN/model_070000.pth  # TODO 0 Naama
 distributed   : False
 
 ## dataset

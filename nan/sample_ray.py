@@ -32,9 +32,8 @@ def parse_camera(params):
 
 
 class RaySampler:
-    def __init__(self, data, device, resize_factor=1, render_stride=1, rgb_env=None):  # TODO Naama rgb_env?
+    def __init__(self, data, device, resize_factor=1, render_stride=1):
         super().__init__()
-        self.rgb_env                        = rgb_env
         self.render_stride                  = render_stride
         self.rgb_path                       = data['rgb_path']
         self.depth_range                    = data['depth_range']
@@ -163,10 +162,7 @@ class RaySampler:
         """
         :return:
         """
-        if self.rgb_env:
-            rgb_inds = self.expand_inds(select_inds)
-        else:
-            rgb_inds = select_inds
+        rgb_inds = select_inds
         if clean:
             rgb = self.rgb_clean[rgb_inds, :].to(self.device) if self.rgb_clean is not None else None
         else:

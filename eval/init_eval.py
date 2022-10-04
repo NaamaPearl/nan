@@ -4,11 +4,12 @@ from functools import reduce
 from torch.utils.data import DataLoader
 
 from configs.config import CustomArgumentParser
-from configs.local_setting import LOG_DIR
+from configs.local_setting import LOG_DIR, EVAL_CONFIG
 from nan.dataloaders import NoiseDataset, dataset_dict
 from nan.dataloaders.basic_dataset import Mode
 from nan.model import NANScheme
 from nan.utils.io_utils import print_link, open_file_explorer
+
 
 
 def rearrange_args_for_eval(additional_eval_args, differ_from_train_args):
@@ -29,10 +30,12 @@ def rearrange_args_for_eval(additional_eval_args, differ_from_train_args):
         additional_eval_args = []
 
     # creating args based on eval config
+    print_link(EVAL_CONFIG, "[*] Open eval config: ")
     parser = CustomArgumentParser.config_parser()
     eval_args = parser.parse_args(args=sys.argv[1:] + additional_eval_args, verbose=False)
     eval_args.distributed = False
 
+    print_link(eval_args.ckpt_path.parent, "[*] Open config in ckpt dir: ")
     # creating args based on config from training
     if not (eval_args.ckpt_path.parent / "config.yml").exists():
         raise FileNotFoundError(f"config file: {(eval_args.ckpt_path.parent / 'config.yml').absolute()}")
@@ -46,6 +49,7 @@ def rearrange_args_for_eval(additional_eval_args, differ_from_train_args):
 
     # Evaluate in same configuration as in training
     if eval_args.same:
+        print("[*] Changing eval config to match the config in ckpt dir")
         # Copy training args to eval args, but update eval only parameters
         new_eval_args = copy(curr_ckpt_train_args)
         new_eval_args.chunk_size = eval_args.chunk_size

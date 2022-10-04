@@ -4,10 +4,11 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
-# TODO Naama find source for ssim
-# Calculate the one-dimensional Gaussian distribution vector
 from nan.utils.general_utils import TINY_NUMBER
 from nan.losses import l2_loss
+
+# SSIM implementation is from https://github.com/Po-Hsun-Su/pytorch-ssim/blob/master/pytorch_ssim/__init__.py
+# Calculate the one-dimensional Gaussian distribution vector
 
 
 def gaussian(window_size, sigma):
@@ -85,7 +86,6 @@ def ssim_loss(rgb1, rgb2, mask=None):
     img2 = rgb2.reshape((-1, crop_size, crop_size, 3)).permute((0, 3, 1, 2))
 
     return 1 - ssim(img1, img2, window_size=11)
-
 
 
 # Classes to re-use window

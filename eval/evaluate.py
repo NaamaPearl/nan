@@ -22,7 +22,7 @@ from nan.utils.io_utils import print_link
 
 # TODO Naama create default evaluation config
 def eval_multi_scenes(ckpt=None, differ_from_train_args=(), scene_list=LLFF_SCENES_LIST, rerun=True, post='',
-                      eval_images=True, eval_rays=True):
+                      eval_images=True, eval_rays=False):
     for scene in scene_list:
         additional_eval_args = ['--eval_scenes', scene]
         if ckpt is not None:

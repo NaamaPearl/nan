@@ -89,17 +89,6 @@ class L1GradLoss(SmoothnessCriterion):
     alpha = 2
 
     def loss_fn(self, pred, gt, mask):
-    #     # TODO gradient loss https://discuss.pytorch.org/t/how-to-calculate-the-gradient-of-images/1407/6
-    #     crop_size = int(pred.shape[-2] ** 0.5)
-    #     pred_patch = pred.reshape((crop_size, crop_size, 3))
-    #     mask_patch = mask.reshape((crop_size, crop_size, 1))[:-1, :-1]
-    #     dy = (pred_patch[:-1, : ]  - pred_patch[1:, : ])[:, :-1]
-    #     dx = (pred_patch[:  , :-1] - pred_patch[: , 1:])[:-1, :]
-    #     d = (dx ** 2 + dy ** 2) ** 0.5
-    #     if mask is None:
-    #         return torch.mean(d)
-    #     else:
-    #         return mean_with_mask(d, mask_patch)
         # gradient
         pred = self.patch_view(pred)
         gt   = self.patch_view(gt)
