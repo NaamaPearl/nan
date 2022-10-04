@@ -25,7 +25,8 @@ CONFIG_EVAL_DICT[PC_NAME] = 'eval.yml'
 ROOT_DIR     = ROOT_DIR_DICT[PC_NAME]
 OUT_DIR      = ROOT_DIR / 'out'
 LOG_DIR      = ROOT_DIR / 'logs'
-DATA_DIR     = Path('D:\\NaamaDirFromYuval\\Projects\\IBRNet\\data')  # TODO Naama change it to ROOT_DIR / 'data'
+# DATA_DIR     = Path('D:\\NaamaDirFromYuval\\Projects\\IBRNet\\data')  # TODO Naama change it to ROOT_DIR / 'data'
+DATA_DIR     = Path('/home/npearl/Documents/PycharmProjects/IBRNet/data')  # TODO Naama change it to ROOT_DIR / 'data'
 FIG_DIR      = ROOT_DIR / 'figures'
 
 TRAIN_CONFIG = ROOT_DIR / 'configs' / CONFIG_TRAIN_DICT[PC_NAME]
@@ -34,3 +35,4 @@ VIDEO_CONFIG  = ROOT_DIR / 'configs' / 'render_videos.yml'
 
 if __name__ == '__main__':
     print(ROOT_DIR)
+

@@ -51,3 +51,4 @@ pre_net                     : True
 noise_feat                  : True
 rgb_weights                 : True
 
+local_rank                  : 0

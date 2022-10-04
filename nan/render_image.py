@@ -46,12 +46,12 @@ def render_single_image(ray_sampler: RaySampler,
     """
     device = torch.device(f'cuda:{args.local_rank}')
     ray_render = RayRender(model=model, args=args, device=device, save_pixel=save_pixel)
-    src_rgbs, featmaps = ray_render.calc_featmaps(ray_sampler.src_rgbs)
+    src_rgbs, featmaps = ray_render.calc_featmaps(ray_sampler.src_rgbs.to(device))
 
-    all_ret = OrderedDict([('coarse', ray_render.ray_output.empty_ret()),
+    all_ret = OrderedDict([('coarse', RaysOutput.empty_ret()),
                            ('fine', None)])
     if args.N_importance > 0:
-        all_ret['fine'] = ray_render.ray_output.empty_ret()
+        all_ret['fine'] = RaysOutput.empty_ret()
     N_rays = ray_sampler.rays_o.shape[0]
 
     for i in tqdm(range(0, N_rays, args.chunk_size)):

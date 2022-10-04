@@ -254,7 +254,7 @@ class Trainer:
         tmp_ray_sampler = RaySampler(val_data, self.device, render_stride=self.args.render_stride)
         H, W = tmp_ray_sampler.H, tmp_ray_sampler.W
         gt_img = tmp_ray_sampler.rgb_clean.reshape(H, W, 3)
-        self.log_view_to_tb(global_step, tmp_ray_sampler, gt_img, prefix='val/')
+        self.log_view_to_tb(global_step, tmp_ray_sampler, gt_img, render_stride=self.args.render_stride, prefix='val/')
         torch.cuda.empty_cache()
 
         print('Logging current training view...')
@@ -262,6 +262,6 @@ class Trainer:
                                            render_stride=self.args.render_stride)
         H, W = tmp_ray_train_sampler.H, tmp_ray_train_sampler.W
         gt_img = tmp_ray_train_sampler.rgb_clean.reshape(H, W, 3)
-        self.log_view_to_tb(global_step, tmp_ray_train_sampler, gt_img, prefix='train/')
+        self.log_view_to_tb(global_step, tmp_ray_train_sampler, gt_img, render_stride=self.args.render_stride, prefix='train/')
 
 

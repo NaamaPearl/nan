@@ -34,6 +34,7 @@ from nan.dataloaders.basic_dataset import NoiseDataset
 from nan.dataloaders.data_utils import random_crop, get_nearest_pose_ids, random_flip, to_uint
 from nan.dataloaders.llff_data_utils import load_llff_data, batch_parse_llff_poses
 from nan.utils.geometry_utils import warp_KRt_wrapper
+from nan.dataloaders.basic_dataset import Mode
 
 
 class COLMAPDataset(NoiseDataset, ABC):
@@ -65,7 +66,7 @@ class COLMAPDataset(NoiseDataset, ABC):
         return load_llff_data(scene_path, load_imgs=False, factor=factor)
 
     def __len__(self):
-        return len(self.render_rgb_files) * 100000 if self.mode == 'train' else len(self.render_rgb_files)
+        return len(self.render_rgb_files) * 100000 if self.mode is Mode.train else len(self.render_rgb_files)
 
     def __getitem__(self, idx):
         idx = idx % len(self.render_rgb_files)
@@ -82,7 +83,7 @@ class COLMAPDataset(NoiseDataset, ABC):
         train_intrinsics = self.src_intrinsics[train_set_id]
         camera = self.create_camera(rgb, intrinsics, render_pose)
 
-        if self.mode == 'train':
+        if self.mode is Mode.train:
             if rgb_file in train_rgb_files:
                 id_render = train_rgb_files.index(rgb_file)
             else:
@@ -149,7 +150,7 @@ class COLMAPDataset(NoiseDataset, ABC):
         i_test = self.get_i_test(poses.shape[0])
         i_train = self.get_i_train(poses.shape[0], i_test, self.mode)
 
-        if self.mode == 'train':
+        if self.mode is Mode.train:
             i_render = i_train
         else:
             i_render = i_test
@@ -176,7 +177,7 @@ class LLFFTestDataset(COLMAPDataset):
     min_nearest_pose = 28
 
     def apply_transform(self, rgb, camera, src_rgbs, src_cameras):
-        if self.mode == 'train' and self.random_crop:
+        if self.mode is Mode.train and self.random_crop:
             crop_h = np.random.randint(low=250, high=750)
             crop_h = crop_h + 1 if crop_h % 2 == 1 else crop_h
             crop_w = int(400 * 600 / crop_h)
@@ -184,7 +185,7 @@ class LLFFTestDataset(COLMAPDataset):
             rgb, camera, src_rgbs, src_cameras = random_crop(rgb, camera, src_rgbs, src_cameras,
                                                              (crop_h, crop_w))
 
-        if self.mode == 'train' and np.random.choice([0, 1]):
+        if self.mode is Mode.train and np.random.choice([0, 1]):
             rgb, camera, src_rgbs, src_cameras = random_flip(rgb, camera, src_rgbs, src_cameras)
 
         return rgb, camera, src_rgbs, src_cameras
@@ -204,7 +205,7 @@ class LLFFDataset(LLFFTestDataset):
 
     @staticmethod
     def get_i_train(N, i_test, mode):
-        if mode == 'train':
+        if mode is Mode.train:
             return np.array(np.arange(N))
         else:
             return super().get_i_train(N, i_test, mode)

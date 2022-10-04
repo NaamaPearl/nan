@@ -17,3 +17,5 @@ same          : True
 num_source_views : 8
 
 process_output : True
+
+local_rank : 0

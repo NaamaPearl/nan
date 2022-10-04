@@ -23,6 +23,7 @@ from torch.utils.data import DistributedSampler, WeightedRandomSampler
 from typing import Optional
 from operator import itemgetter
 import torch
+from nan.dataloaders.basic_dataset import Mode
 
 
 class DatasetFromSampler(Dataset):
@@ -106,7 +107,7 @@ def create_training_dataset(args):
     # args.dataset_weights should be a list representing the resampling rate for each dataset, and should sum up to 1
 
     print(f'training dataset: {args.train_dataset}')
-    mode = 'train'
+    mode = Mode.train
     if '+' not in args.train_dataset:
         train_dataset = dataset_dict[args.train_dataset](args, mode, scenes=args.train_scenes)
         assert isinstance(train_dataset, NoiseDataset)
