@@ -283,10 +283,6 @@ class CustomArgumentParser(configargparse.ArgumentParser):
         if len(args.std) == 1:
             args.std = args.std[0]
 
-        # checkpoints
-        if args.force_latest_exp:
-            args.ckpt_path = get_latest_file(get_latest_file(OUT_DIR), "*.pth")
-
         self.update_expname(args)
 
         return args

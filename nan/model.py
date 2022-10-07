@@ -70,10 +70,14 @@ class NANScheme(nn.Module):
                                    coarse_only=args.coarse_only).to(device)
 
         # create coarse NAN mlps
-        self.mlps: Dict[str, NanMLP] = {'coarse': self.nan_factory('coarse', device), 'fine': None}
+        self.net_coarse = self.nan_factory('coarse', device)
+        self.net_fine = None
+
         if not args.coarse_only:
             # create fine NAN mlps
-            self.mlps['fine'] = self.nan_factory('fine', device)
+            self.net_fine = self.nan_factory('fine', device)
+
+        self.mlps: Dict[str, NanMLP] = {'coarse': self.net_coarse, 'fine': self.net_fine}
 
         if args.pre_net:
             self.pre_net = Gaussian2D(in_channels=3, out_channels=3, kernel_size=(3, 3), sigma=(1.5, 1.5)).to(device)
@@ -90,13 +94,13 @@ class NANScheme(nn.Module):
                                               load_scheduler=not args.no_load_scheduler,
                                               init_for_train=init_for_train)
 
-    @property
-    def net_coarse(self):
-        return self.mlps['coarse']
-
-    @property
-    def net_fine(self):
-        return self.mlps['fine']
+    # @property
+    # def net_coarse(self):
+    #     return self.mlps['coarse']
+    #
+    # @property
+    # def net_fine(self):
+    #     return self.mlps['fine']
 
     def create_optimizer(self):
         # if not args.froze_mlp:
@@ -185,7 +189,7 @@ class NANScheme(nn.Module):
         except RuntimeError:
             # from https://discuss.pytorch.org/t/how-to-load-part-of-pre-trained-model/1113/3
             if not init_for_train:
-                raise RuntimeError
+                raise
             new_model_dict = net.state_dict()
 
             # 1. filter of weights with shape mismatch
@@ -217,7 +221,10 @@ class NANScheme(nn.Module):
 
         if out_folder.exists() and self.args.resume_training:
             print_link(out_folder, "[*] Resume training looking for ckpt in ")
-            ckpt = get_latest_file(out_folder, "*.pth")
+            try:
+                ckpt = get_latest_file(out_folder, "*.pth")
+            except ValueError:
+                pass
 
         if self.args.ckpt_path is not None and not self.args.resume_training:
             if not self.args.ckpt_path.exists():  # load the specified ckpt

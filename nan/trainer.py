@@ -50,6 +50,7 @@ class Trainer:
                                                         shuffle=True if self.train_sampler is None else False)
 
         # create validation dataset
+        # TODO change to Mode.validation
         self.val_dataset = dataset_dict[args.eval_dataset](args, 'validation', scenes=args.eval_scenes)
         self.val_loader = DataLoader(self.val_dataset, batch_size=1)
         self.val_loader_iterator = iter(cycle(self.val_loader))

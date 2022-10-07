@@ -11,7 +11,6 @@ from nan.model import NANScheme
 from nan.utils.io_utils import print_link, open_file_explorer
 
 
-
 def rearrange_args_for_eval(additional_eval_args, differ_from_train_args):
     """
     Creating params for eval.
@@ -41,10 +40,10 @@ def rearrange_args_for_eval(additional_eval_args, differ_from_train_args):
         raise FileNotFoundError(f"config file: {(eval_args.ckpt_path.parent / 'config.yml').absolute()}")
     curr_ckpt_train_args = ['--config', str(eval_args.ckpt_path.parent / "config.yml"),
                             '--ckpt_path', str(eval_args.ckpt_path)]
-    if eval_args.force_latest_exp:
-        curr_ckpt_train_args.append('--force_latest_exp')
+
     curr_ckpt_train_args = parser.parse_args(args=curr_ckpt_train_args, verbose=False)
     curr_ckpt_train_args.no_reload = False  # make sure to reload the ckpt weights
+    curr_ckpt_train_args.resume_training = eval_args.resume_training
     curr_ckpt_train_args.local_rank = eval_args.local_rank
 
     # Evaluate in same configuration as in training
@@ -52,6 +51,7 @@ def rearrange_args_for_eval(additional_eval_args, differ_from_train_args):
         print("[*] Changing eval config to match the config in ckpt dir")
         # Copy training args to eval args, but update eval only parameters
         new_eval_args = copy(curr_ckpt_train_args)
+        new_eval_args.same = True
         new_eval_args.chunk_size = eval_args.chunk_size
         new_eval_args.render_stride = eval_args.render_stride
         new_eval_args.eval_dataset = eval_args.eval_dataset
@@ -84,9 +84,11 @@ def init_eval(additional_eval_args=None, open_dir=True, differ_from_train_args=N
 
     # Create NAN model
     if eval_args.same:
-        model = NANScheme(train_args)
+        model_args = train_args
     else:
-        model = NANScheme(eval_args)
+        model_args = copy(eval_args)
+        model_args.expname = train_args.expname
+    model = NANScheme(model_args)
 
     # dataloader
     test_dataset: NoiseDataset = dataset_dict[eval_args.eval_dataset](args=eval_args,

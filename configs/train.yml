@@ -1,6 +1,6 @@
 ### INPUT
-expname                     : reproduce
-render_stride               : 2  # used in evaluation
+expname                     : sanity_check
+render_stride               : 8 # TODO 2  # used in evaluation
 distributed                 : False
 
 ## dataset
@@ -10,7 +10,7 @@ eval_scenes                 : [fern, orchids, flower, horns, leaves, room, trex,
 
 ### TRAINING
 n_iters                     : 255000
-N_rand                      : 512
+N_rand                      : 64 # TODO 512
 lrate_feature               : 0.001
 lrate_mlp                   : 0.0005
 lrate_decay_factor          : 0.5
@@ -20,7 +20,7 @@ losses_weights              : [0,  1,  0,       0]
 workers                     : 0 # TODO Naama
 
 ### TESTING
-chunk_size                  : 2048   # can be bigger depend on the gpu memory
+chunk_size                  : 128 # TODO 2048   # can be bigger depend on the gpu memory
 
 ### RENDERING
 N_importance                : 64
