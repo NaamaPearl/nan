@@ -109,15 +109,19 @@ class Projector:
         return ray_diff
 
     def compute(self, xyz, query_camera, src_imgs, org_src_imgs, sigma_estimate, src_cameras, featmaps):
-        """
-        @param src_imgs:
-        @param xyz: [n_rays, n_samples, 3]
-        @param query_camera: [1, 34], 34 = img_size(2) + intrinsics(16) + extrinsics(16)
-        @param src_cameras: [1, n_views, 34]
-        @param featmaps: [n_views, d, h, w]
-        @return: rgb_feat_sampled: [n_rays, n_samples, 3+n_feat],
-                 ray_diff: [n_rays, n_samples, 4],
-                 mask: [n_rays, n_samples, 1]
+        """ Given 3D points and the camera of the target and src views,
+        computing the rgb values of the incident pixels and their kxk environment.
+
+        :param src_imgs: (1, N, W, H, 3)
+        :param xyz: 3D points along the rays [R, S, 3]
+        :param query_camera: [1, 34], 34 = img_size(2) + intrinsics(16) + extrinsics(16)
+        :param src_cameras: [1, N, 34]
+        :param featmaps: [N, C, H', W']
+        :return: rgb_feat_sampled: [R, S, k, k, N, 3+F],
+                 ray_diff: [R, S, 1, 1, N, 4],
+                 mask: [R, S, N, 1],
+                 org_rgbs_sampled: [R, S, k, k, N, 3+F],
+                 sigma_estimate: [R, S, k, k, N, 3+F]
         """
         assert (src_imgs.shape[0] == 1) \
                and (src_cameras.shape[0] == 1) \

@@ -111,12 +111,12 @@ class RayRender:
 
     def sample_along_ray_coarse(self, ray_o, ray_d, depth_range):
         """
-        @param: ray_o: origin of the ray in scene coordinate system; tensor of shape [N_rays, 3]
-        @param: ray_d: homogeneous ray direction vectors in scene coordinate system; tensor of shape [N_rays, 3]
-        @param: depth_range: [near_depth, far_depth]
-        @param: inv_uniform: if True, uniformly sampling inverse depth
-        @param: det: if True, will perform deterministic sampling
-        @return: tensor of shape [N_rays, N_samples, 3]
+        :param: ray_o: origin of the ray in scene coordinate system; tensor of shape [N_rays, 3]
+        :param: ray_d: homogeneous ray direction vectors in scene coordinate system; tensor of shape [N_rays, 3]
+        :param: depth_range: [near_depth, far_depth]
+        :param: inv_uniform: if True, uniformly sampling inverse depth
+        :param: det: if True, will perform deterministic sampling
+        :return: 3D point: tensor of shape [N_rays, N_samples, 3], z_vals: tensor of shape [N_rays, N_samples, 3]
         """
         # will sample inside [near_depth, far_depth]
         # assume the nearest possible depth is at least (min_ratio * depth)
@@ -181,12 +181,20 @@ class RayRender:
     def render_batch(self, ray_batch, proc_src_rgbs, featmaps, org_src_rgbs,
                      sigma_estimate) -> Dict[str, RaysOutput]:
         """
-        @param sigma_estimate:
-        @param org_src_rgbs:
-        @param proc_src_rgbs:
-        @param featmaps:
-        @param ray_batch: {'ray_o': [N_rays, 3] , 'ray_d': [N_rays, 3], 'view_dir': [N_rays, 2]}
-        @return: {'coarse': {}, 'fine': {}}
+        :param sigma_estimate: (1, N, H, W, 3)
+        :param org_src_rgbs: (1, N, H, W, 3)
+        :param proc_src_rgbs: org_src_rgbs after processing with pre_net, if exists (1, N, H, W, 3)
+        :param featmaps: dict {'corase': (N, C, H', W'), 'fine': (N, C, H', W')}
+        :param ray_batch: {ray_o: (R, 3),
+                           ray_d: (R, 3),
+                           camera: (1, 34),
+                           depth_range: (1, 2),
+                           src_cameras: (1, N, 34),
+                           selected_inds: (R,),
+                           xyz: (R, 3),
+                           rgb: (R, 3),
+                           white_level: (1, 1)}
+        :return: {'coarse': {}, 'fine': {}}
         """
 
         # Find pixels for debug
@@ -196,22 +204,22 @@ class RayRender:
         batch_out = {'coarse': None,
                      'fine': None}
 
-        # pts:    [N_rays, N_samples, 3]
-        # z_vals: [N_rays, N_samples]
+        # pts:    [R, S, 3]
+        # z_vals: [R, S]
         # Sample points along ray for coarse phase
         pts_coarse, z_vals_coarse = self.sample_along_ray_coarse(ray_o=ray_batch['ray_o'],
                                                                  ray_d=ray_batch['ray_d'],
                                                                  depth_range=ray_batch['depth_range'])
 
         # Process the rays and return the coarse phase output
-        coarse = self.process_rays_batch(ray_batch=ray_batch, pts=pts_coarse, z_vals=z_vals_coarse, save_idx=save_idx,
+        coarse_ray_out = self.process_rays_batch(ray_batch=ray_batch, pts=pts_coarse, z_vals=z_vals_coarse, save_idx=save_idx,
                                          level='coarse', proc_src_rgbs=proc_src_rgbs, featmaps=featmaps,
                                          org_src_rgbs=org_src_rgbs, sigma_estimate=sigma_estimate)
-        batch_out['coarse'] = coarse
+        batch_out['coarse'] = coarse_ray_out
 
         if self.fine_processing:
             # Sample points along ray for fine phase, based on the coarse output
-            pts_fine, z_vals_fine = self.sample_along_ray_fine(coarse_out=coarse,
+            pts_fine, z_vals_fine = self.sample_along_ray_fine(coarse_out=coarse_ray_out,
                                                                z_vals=z_vals_coarse,
                                                                ray_batch=ray_batch)
 
@@ -226,16 +234,16 @@ class RayRender:
     def process_rays_batch(self, ray_batch, pts, z_vals, save_idx, level, proc_src_rgbs, featmaps,
                            org_src_rgbs, sigma_estimate):
         """
-        @param sigma_estimate:
-        @param org_src_rgbs:
-        @param proc_src_rgbs:
-        @param featmaps:
-        @param level:
-        @param ray_batch:
-        @param pts:
-        @param z_vals:
-        @param save_idx:
-        @return:
+        :param sigma_estimate: (1, N, H, W, 3)
+        :param org_src_rgbs: (1, N, H, W, 3)
+        :param proc_src_rgbs: (1, N, H, W, 3)
+        :param featmaps: (N, 3, H', W')
+        :param level: str {'coarse', 'fine'}
+        :param ray_batch: dictionary with rays origin, direction and relevant data for rendering
+        :param pts: 3D points along the rays (R, S, 3)
+        :param z_vals: z values from which the 3D points were calcuated (R, S)
+        :param save_idx: indices for debug purposes
+        :return: RaysOutput object of the rendered values
         """
         # Project the pts along the rays batch on all others views (src views)
         # based on the target camera and src cameras (intrinsics - K, rotation - R, translation - t)
@@ -253,19 +261,19 @@ class RayRender:
         # Calculate the pixel mask in the target view, based on the mask of points along the ray
         # TODO check what is going on with the mask calculation inside raw2output
         pixel_mask = pts_mask[..., 0].sum(dim=2) > 1  # [N_rays, N_samples], should at least have 2 observations
-        outputs = RaysOutput.raw2output(rgb_out, rho_out, z_vals, pixel_mask, white_bkgd=self.white_bkgd)
+        ray_outputs = RaysOutput.raw2output(rgb_out, rho_out, z_vals, pixel_mask, white_bkgd=self.white_bkgd)
 
         if save_idx is not None:
             debug_dict = {}
             for idx, pixel in save_idx:
-                debug_dict[(tuple(pixel))] = OrderedDict([('z', outputs.z_vals[idx].cpu()),
-                                                          ('w', outputs.weights[idx].cpu()),
+                debug_dict[(tuple(pixel))] = OrderedDict([('z', ray_outputs.z_vals[idx].cpu()),
+                                                          ('w', ray_outputs.weights[idx].cpu()),
                                                           ('w_rgb', debug_info[0][idx].cpu()),
                                                           ('feat', debug_info[1][idx].cpu()),
                                                           ('globalfeat_attention', debug_info[2][idx].cpu())])
-            outputs.debug = debug_dict
+            ray_outputs.debug = debug_dict
 
-        return outputs
+        return ray_outputs
 
     def calc_featmaps(self, src_rgbs):
         """

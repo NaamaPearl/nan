@@ -53,13 +53,13 @@ class Gaussian2D(nn.Conv2d):
 
 class NANScheme(nn.Module):
     @classmethod
-    def create(cls, args, init_for_train=False):
-        model = cls(args, init_for_train=init_for_train)
+    def create(cls, args):
+        model = cls(args)
         if args.distributed:
             model = parallel(model, args.local_rank)
         return model
 
-    def __init__(self, args, init_for_train=False):
+    def __init__(self, args):
         super().__init__()
         self.args = args
         device = torch.device(f'cuda:{args.local_rank}')
@@ -89,44 +89,21 @@ class NANScheme(nn.Module):
         # optimizer and learning rate scheduler
         self.optimizer, self.scheduler = self.create_optimizer()
 
-        self.start_step = self.load_from_ckpt(out_folder,
-                                              load_opt=not args.no_load_opt,
-                                              load_scheduler=not args.no_load_scheduler,
-                                              init_for_train=init_for_train)  # TODO remove init_for_train?
-
-    # @property
-    # def net_coarse(self):
-    #     return self.mlps['coarse']
-    #
-    # @property
-    # def net_fine(self):
-    #     return self.mlps['fine']
+        self.start_step = self.load_from_ckpt(out_folder)
 
     def create_optimizer(self):
-        # if not args.froze_mlp: # TODO Naama remove
         params_list = [{'params': self.feature_net.parameters(), 'lr': self.args.lrate_feature},
                        {'params': self.net_coarse.parameters(),  'lr': self.args.lrate_mlp}]
         if self.net_fine is not None:
             params_list.append({'params': self.net_fine.parameters(), 'lr': self.args.lrate_mlp})
-        # else:
-        #     params_list = [{'params': self.feature_net.conv1() + self.feature_net.layer1(), 'lr': args.lrate_feature}]
 
         if self.args.pre_net:
             params_list.append({'params': self.pre_net.parameters(), 'lr': self.args.lrate_feature})
 
         optimizer = torch.optim.Adam(params_list)
-
-        if self.args.n_iters > 50001: # TODO remove
-            def lr_schedule(step):
-                if step < 10000:
-                    return 1
-                else:
-                    return self.args.lrate_decay_factor ** ((step - 10000) // self.args.lrate_decay_steps)
-            scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lr_schedule)
-        else:
-            scheduler = torch.optim.lr_scheduler.StepLR(optimizer,
-                                                        step_size=self.args.lrate_decay_steps,
-                                                        gamma=self.args.lrate_decay_factor)
+        scheduler = torch.optim.lr_scheduler.StepLR(optimizer,
+                                                    step_size=self.args.lrate_decay_steps,
+                                                    gamma=self.args.lrate_decay_factor)
 
         return optimizer, scheduler
 
@@ -152,7 +129,7 @@ class NANScheme(nn.Module):
                    'model' : de_parallel(self).state_dict()}
         torch.save(to_save, filename)
 
-    def load_model(self, filename, load_opt=True, load_scheduler=True, init_for_train=False):
+    def load_model(self, filename):
         load_dict = torch.load(filename, map_location=torch.device(f'cuda:{self.args.local_rank}'))
         if 'model' not in load_dict:
             # for old version of ckpt
@@ -166,12 +143,12 @@ class NANScheme(nn.Module):
 
         load_dict['model'] = model_dict
 
-        if load_opt:
+        if self.args.load_opt:
             self.optimizer.load_state_dict(load_dict['optimizer'])
-        if load_scheduler:
+        if self.args.load_scheduler:
             self.scheduler.load_state_dict(load_dict['scheduler'])
 
-        self.load_weights_to_net(self, load_dict['model'], init_for_train)
+        self.load_weights_to_net(self, load_dict['model'], self.args.allow_weights_mismatch)
 
     @staticmethod
     def convert_state_to_model(load_dict):
@@ -183,37 +160,34 @@ class NANScheme(nn.Module):
         return new_load_dict
 
     @staticmethod
-    def load_weights_to_net(net, pretrained_dict, init_for_train):
+    def load_weights_to_net(net, pretrained_dict, allow_weights_mismatch):
         try:
             net.load_state_dict(pretrained_dict)
         except RuntimeError:
-            # from https://discuss.pytorch.org/t/how-to-load-part-of-pre-trained-model/1113/3
-            if not init_for_train:
+            if not allow_weights_mismatch:
                 raise
-            new_model_dict = net.state_dict()
+            else:
+                # from https://discuss.pytorch.org/t/how-to-load-part-of-pre-trained-model/1113/3
+                new_model_dict = net.state_dict()
 
-            # 1. filter of weights with shape mismatch
-            for pre_k, pre_v in pretrained_dict.items():
-                if pre_k in new_model_dict:
-                    new_v = new_model_dict[pre_k]
-                    if new_v.shape == pre_v.shape:
-                        new_model_dict[pre_k] = new_v
-                    else:
-                        pass
-                        # if we want to load partial layers, it can be done with:
-                        # new_model_dict[pre_k][torch.where(torch.ones_like(new_v))] = new_v.view(-1).clone()
-            # 3. load the new state dict
-            net.load_state_dict(new_model_dict)
+                # 1. filter of weights with shape mismatch
+                for pre_k, pre_v in pretrained_dict.items():
+                    if pre_k in new_model_dict:
+                        new_v = new_model_dict[pre_k]
+                        if new_v.shape == pre_v.shape:
+                            new_model_dict[pre_k] = new_v
+                        else:
+                            pass
+                            # if we want to load partial layers, it can be done with:
+                            # new_model_dict[pre_k][torch.where(torch.ones_like(new_v))] = new_v.view(-1).clone()
+                # 3. load the new state dict
+                net.load_state_dict(new_model_dict)
 
-    def load_from_ckpt(self, out_folder: Path, load_opt=True, load_scheduler=True, init_for_train=False):
+    def load_from_ckpt(self, out_folder: Path):
         """
         load model from existing checkpoints and return the current step
         :param out_folder: the directory that stores ckpts
         :return: the current starting step
-        @param out_folder:
-        @param force_latest_ckpt:
-        @param load_scheduler:
-        @param load_opt:
         """
 
         # all existing ckpts
@@ -234,7 +208,7 @@ class NANScheme(nn.Module):
         if ckpt is not None and not self.args.no_reload:
             step = int(ckpt.stem[-6:])
             print_link(ckpt, '[*] Reloading from', f"starting at step={step}")
-            self.load_model(ckpt, load_opt, load_scheduler, init_for_train)
+            self.load_model(ckpt)
         else:
             if ckpt is None:
                 print('[*] No ckpts found, training from scratch...')
