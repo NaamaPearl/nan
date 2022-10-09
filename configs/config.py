@@ -154,6 +154,9 @@ class CustomArgumentParser(configargparse.ArgumentParser):
                             help='do not load optimizer when reloading')
         parser.add_argument("--no_load_scheduler", action='store_true',
                             help='do not load scheduler when reloading')
+        parser.add_argument("--allow_weights_mismatch", action="store_true",
+                            help='allow mismatch between loaded ckpt and model weights shape. '
+                                 'Only agreed dimension will be loaded')
 
         # ########### iterations, loss & learning rate options ##########
         parser.add_argument("--n_iters", type=int, default=250000,
@@ -209,6 +212,10 @@ class CustomArgumentParser(configargparse.ArgumentParser):
                                  'is than used for changing specific args.')
         parser.add_argument("--process_output", action='store_true',
                             help='whether to save processed output (white balance and gamma correction)')
+        parser.add_argument("--eval_images", action='store_true', help='whether to evaluate the whole images')
+        parser.add_argument("--eval_rays", action='store_true', help='whether to evaluate specific rays')
+        parser.add_argument("--rerun", action='store_true', help='whether to rerun inference again of just calculate metrics')
+        parser.add_argument("--post", type=str, default='', help='suffix of the images to load when rerun=False')
 
         # ### burst denoising simulation and training ###
         parser.add_argument("--std", nargs='+', type=float, default=[0],

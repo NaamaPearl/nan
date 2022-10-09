@@ -8,7 +8,9 @@ def unsqueeze_like(x, y):
 class RaysOutput:
     RGB_IDX = slice(3)
     RHO_IDX = 3
-
+    """
+    Object that aggregate the network output along the rays.
+    """
     def __init__(self, rgb_map, depth_map, weights=None, mask=None, alpha=None, z_vals=None, rho=None,
                  debug=None):
         self.rgb = rgb_map
@@ -23,14 +25,17 @@ class RaysOutput:
     @classmethod
     def raw2output(cls, rgb, rho, z_vals, mask, white_bkgd=False):
         """
-        :param rgb: raw network output; tensor of shape [N_rays, N_samples, 4]
-        :param z_vals: depth of point samples along rays; tensor of shape [N_rays, N_samples]
+        :param rgb: rgb network output; tensor of shape [R, S, 3]
+        :param rho: rho network output; tensor of shape [R, S, 1]
+        :param z_vals: depth of point samples along rays; tensor of shape [R, S]
+        :param mask: [R, S]
+        :param white_bkgd: Used to handle scenes with white background
         :return: RaysOutput object: rgb: [N_rays, 3], depth: [N_rays,], weights: [N_rays,]
         """
 
         # IBRNet note: we did not use the intervals here, because in practice different scenes from COLMAP can have
         # very different scales, and using interval can affect the model's generalization ability.
-        # Therefore we don't use the intervals for both training and evaluation.
+        # Therefor we don't use the intervals for both training and evaluation.
 
         def rho2alpha(rho_, dist):
             return 1. - torch.exp(-rho_)

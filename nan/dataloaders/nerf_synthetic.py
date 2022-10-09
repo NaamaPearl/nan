@@ -18,7 +18,7 @@ import imageio
 import torch
 import json
 
-from nan.dataloaders.basic_dataset import NoiseDataset
+from nan.dataloaders.basic_dataset import NoiseDataset, Mode
 from nan.dataloaders.data_utils import get_nearest_pose_ids
 
 
@@ -72,7 +72,7 @@ class NerfSyntheticDataset(NoiseDataset):
     def add_single_scene(self, _, scene_path):
         pose_file = os.path.join(scene_path, f'transforms_{self.mode}.json')
         rgb_files, intrinsics, poses = read_cameras(pose_file)
-        if self.mode != 'train':
+        if self.mode != Mode.train:
             rgb_files = rgb_files[::self.testskip]
             intrinsics = intrinsics[::self.testskip]
             poses = poses[::self.testskip]
@@ -91,7 +91,7 @@ class NerfSyntheticDataset(NoiseDataset):
         train_pose_file = os.path.join('/'.join(rgb_file.split('/')[:-2]), 'transforms_train.json')
         train_rgb_files, train_intrinsics, train_poses = read_cameras(train_pose_file)
 
-        if self.mode == 'train':
+        if self.mode == Mode.train:
             id_render = int(os.path.basename(rgb_file)[:-4].split('_')[1])
             subsample_factor = np.random.choice(np.arange(1, 4), p=[0.3, 0.5, 0.2])
         else:

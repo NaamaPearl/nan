@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 from configs.local_setting import OUT_DIR, LOG_DIR
 from nan.criterion import NANLoss
 from nan.dataloaders import dataset_dict
-from nan.dataloaders.basic_dataset import de_linearize
+from nan.dataloaders.basic_dataset import de_linearize, Mode
 from nan.dataloaders.create_training_dataset import create_training_dataset
 from nan.dataloaders.data_utils import cycle
 from nan.losses import l2_loss
@@ -50,8 +50,7 @@ class Trainer:
                                                         shuffle=True if self.train_sampler is None else False)
 
         # create validation dataset
-        # TODO change to Mode.validation
-        self.val_dataset = dataset_dict[args.eval_dataset](args, 'validation', scenes=args.eval_scenes)
+        self.val_dataset = dataset_dict[args.eval_dataset](args, Mode.validation, scenes=args.eval_scenes)
         self.val_loader = DataLoader(self.val_dataset, batch_size=1)
         self.val_loader_iterator = iter(cycle(self.val_loader))
 
@@ -96,7 +95,7 @@ class Trainer:
 
     def train(self):
         global_step = self.model.start_step + 1
-        epoch = 0  # TODO calc epoch based on start step
+        epoch = 0  # epoch is not consistent when loading ckpt, it affects train_sampler when distributed and prints
 
         while global_step < self.args.n_iters + 1:
             np.random.seed()

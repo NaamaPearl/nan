@@ -20,20 +20,14 @@ from eval.experiment_list import LLFF_SCENES_LIST
 from nan.utils.io_utils import print_link
 
 
-# TODO Naama create default evaluation config
-def eval_multi_scenes(ckpt=None, differ_from_train_args=(), scene_list=LLFF_SCENES_LIST, rerun=True, post='',
-                      eval_images=True, eval_rays=False):
+def eval_multi_scenes(ckpt=None, differ_from_train_args=(), scene_list=LLFF_SCENES_LIST):
     for scene in scene_list:
         additional_eval_args = ['--eval_scenes', scene]
         if ckpt is not None:
             additional_eval_args += ['--ckpt_path', str(ckpt)]
 
         SceneEvaluator.scene_evaluation(add_args=additional_eval_args,
-                                        differ_args=differ_from_train_args,
-                                        rerun=rerun,
-                                        post=post,
-                                        eval_images=eval_images,
-                                        eval_rays=eval_rays)
+                                        differ_args=differ_from_train_args)
 
 
 def main():

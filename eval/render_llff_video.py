@@ -65,7 +65,6 @@ class LLFFRenderDataset(LLFFTestDataset):
         self.w.extend([int(w)] * num_render)
 
     def __len__(self):
-        return 10  # TODO only for debug, revert
         return len(self.render_poses)
 
     def __getitem__(self, idx):

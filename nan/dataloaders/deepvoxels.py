@@ -16,7 +16,7 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from nan.dataloaders.basic_dataset import NoiseDataset
+from nan.dataloaders.basic_dataset import NoiseDataset, Mode
 from nan.dataloaders.data_utils import deepvoxels_parse_intrinsics, get_nearest_pose_ids
 
 
@@ -36,7 +36,7 @@ class DeepVoxelsDataset(NoiseDataset):
 
     def add_single_scene(self, _, scene_path):
         rgb_files = sorted((scene_path / 'rgb').glob("*"))
-        if self.mode != 'train':
+        if self.mode != Mode.train:
             rgb_files = rgb_files[::self.testskip]
         depth_files = [Path(str(f).replace('rgb', 'depth')) for f in rgb_files]
         pose_files = [Path(str(f).replace('rgb', 'pose').replace('png', 'txt')) for f in rgb_files]
@@ -60,7 +60,7 @@ class DeepVoxelsDataset(NoiseDataset):
         train_poses_files = [Path(str(f).replace('rgb', 'pose').replace('png', 'txt')) for f in train_rgb_files]
         train_poses = np.stack([np.loadtxt(str(file)).reshape(4, 4) for file in train_poses_files], axis=0)
 
-        if self.mode == 'train':
+        if self.mode == Mode.train:
             id_render = train_poses_files.index(pose_file)
             subsample_factor = np.random.choice(np.arange(1, 5))
             num_source_views = np.random.randint(low=self.num_source_views-4, high=self.num_source_views+2)

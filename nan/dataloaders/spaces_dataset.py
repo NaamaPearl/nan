@@ -15,7 +15,7 @@
 # some code in this file is adapted from https://github.com/augmentedperception/spaces_dataset/
 
 from pathlib import Path
-from nan.dataloaders.basic_dataset import NoiseDataset
+from nan.dataloaders.basic_dataset import NoiseDataset, Mode
 
 import os
 import numpy as np
@@ -293,7 +293,7 @@ class SpacesFreeDataset(NoiseDataset):
 
     def get_all_scenes(self):
         eval_scene_ids = []
-        if self.mode == 'train':
+        if self.mode == Mode.train:
             # use all 100 scenes in spaces dataset for training
             train_scene_ids = [i for i in np.arange(0, 100) if i not in eval_scene_ids]
             return [self.folder_path / f'scene_{i:03d}' for i in train_scene_ids]

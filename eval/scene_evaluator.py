@@ -99,23 +99,15 @@ SEPARATOR = get_separator(STRING_FMT, TABLE_WIDTH, TABLE_COLUMN)
 class SceneEvaluator:
     CMAP = plt.get_cmap('jet')
 
-    def __init__(self, additional_eval_args, differ_args, rerun=True, post='', eval_images: bool = True,
-                 eval_rays: bool = True):
+    def __init__(self, additional_eval_args, differ_args):
         """
 
         :param additional_eval_args: additional args to pass to the evaluation
                (different from the default config, like ckpt, scenes)
         :param differ_args: if args.same = True in the default eval config, the model setup is copied from the train
                config. These are args that should be different from the training setup when using args.same = True
-        :param rerun: whether to run inference again on the network or load existing results and just calculate metrics
-        :param post: suffix of images name (for example, to calculate PSNR after post-processing, using rerun = True)
-        :param eval_images: whether to evaluate the full images
-        :param eval_rays: whether to evaluate specific rays in the images
         """
-        self.eval_rays = eval_rays
-        self.eval_images = eval_images
-        self.rerun = rerun
-        self.post = post
+
         self.summary_obj_dict: Dict[str, Summary] = {'coarse': Summary(), 'fine': Summary()}
 
         self.test_loader, self.scene_name, self.res_dir, self.eval_args, self.model = init_eval(additional_eval_args,
@@ -137,9 +129,8 @@ class SceneEvaluator:
         return f"running mean coarse: {self.coarse_sum}\nrunning mean fine:{self.fine_sum}"
 
     @classmethod
-    def scene_evaluation(cls, add_args, differ_args, rerun=True, post='', eval_images=True,
-                         eval_rays=True):  # TODO move images, rays to args
-        evaluator = cls(add_args, differ_args, rerun, post, eval_images=eval_images, eval_rays=eval_rays)
+    def scene_evaluation(cls, add_args, differ_args):
+        evaluator = cls(add_args, differ_args)
         return evaluator.start_scene_evaluation()
 
     def start_scene_evaluation(self):
@@ -151,7 +142,7 @@ class SceneEvaluator:
         sum_results_dict[self.scene_name].update(self.fine_sum.mean_dict('fine'))
 
         if self.eval_args.eval_dataset != 'usfm':
-            filename = f'{self.post}psnr_{self.scene_name}_{self.model.start_step}'
+            filename = f'{self.eval_args.post}psnr_{self.scene_name}_{self.model.start_step}'
             results_dict = self.get_all_results_dict()
             self.save_results(results_dict, self.res_dir.parent / f'{filename}.npy')
             self.print_result(results_dict, sum_results_dict, f=None)
@@ -173,7 +164,7 @@ class SceneEvaluator:
         pred_rgb = rays_output[level].rgb.detach().cpu()
 
         # process output if needed (white balance and gamma correction)
-        if self.rerun and self.eval_args.process_output:
+        if self.eval_args.rerun and self.eval_args.process_output:
             pred_rgb = de_linearize(pred_rgb, data['white_level'])
         if self.eval_args.eval_dataset == 'usfm':
             pred_rgb = pred_rgb * data['white_level']
@@ -188,7 +179,7 @@ class SceneEvaluator:
 
         self.summary_obj_dict[level].update(psnr_val=psnr, lpips_val=lpips, ssim_val=ssim, depth_mse=depth_error)
 
-        if self.rerun:
+        if self.eval_args.rerun:
             # saving outputs: predicted rgb, accuracy map, predicted depth,  warp images
             self.save_outputs(gt_rgb, pred_rgb, file_id, level, rays_output, pred_depth, ray_sampler, data)
 
@@ -196,7 +187,7 @@ class SceneEvaluator:
         is_deeprep = self.res_dir.parent.parent.parent.stem == 'deeprep'
         is_bpn = self.res_dir.parent.parent.parent.stem == 'bpn'
         ours = not is_bpn and not is_deeprep
-        assert not (not ours and self.rerun)
+        assert not (not ours and self.eval_args.rerun)
         return ours
 
     def evaluate_single_burst(self, data):
@@ -208,11 +199,11 @@ class SceneEvaluator:
         with torch.no_grad():
             ray_sampler = RaySampler(data, device=self.device, render_stride=self.eval_args.render_stride)
 
-        if self.eval_images:
+        if self.eval_args.eval_images:
             print("********** evaluate images ***********")
             self.evaluate_images(data, ray_sampler, file_id)
 
-        if self.eval_rays:
+        if self.eval_args.eval_rays:
             print("********** evaluate rays   ***********")
             self.evaluate_rays(data, ray_sampler)
 
@@ -232,7 +223,7 @@ class SceneEvaluator:
         imageio.imwrite(str(self.res_dir / f"{file_id}_average.png"), to_uint(averaged_img), 'PNG-FI')
 
     def load_results(self, file_id):
-        pred_fine = torch.tensor(imageio.imread(self.res_dir / f"{self.post}{file_id}_pred_fine.png")) / 255
+        pred_fine = torch.tensor(imageio.imread(self.res_dir / f"{self.eval_args.post}{file_id}_pred_fine.png")) / 255
 
         if self.ours:
             pred_depth_fine = torch.tensor(
@@ -295,7 +286,7 @@ class SceneEvaluator:
         # warp images
         if ray_sampler.render_stride == 1:
             warped_img_rgb = self.warped_images_by_depth(rays_output[level], data)
-            if self.rerun and self.eval_args.process_output:
+            if self.eval_args.rerun and self.eval_args.process_output:
                 warped_img_rgb = de_linearize(warped_img_rgb, data['white_level'])
             if self.eval_args.eval_dataset == 'usfm':
                 warped_img_rgb = warped_img_rgb * data['white_level']
@@ -317,7 +308,7 @@ class SceneEvaluator:
                 depth_error_map = ((gt_depth - pred_depth) ** 2)
                 depth_error = depth_error_map.mean()
                 imageio.imwrite(str(self.res_dir / f"{file_id}_depth_error_{level}.png"),
-                                to_uint(norm_depth(depth_error_map)), 'PNG-FI')  # TODO Naama move to all save output?
+                                to_uint(norm_depth(depth_error_map)), 'PNG-FI')
             else:
                 depth_error = 0
         else:
@@ -378,7 +369,7 @@ class SceneEvaluator:
             analyze_per_pixel(ray_batch_out, data, save_pixel, self.res_dir, show=False)
 
     def evaluate_images(self, data, ray_sampler, file_id):
-        if self.rerun:
+        if self.eval_args.rerun:
             self.save_input(data, file_id)
 
             with torch.no_grad():

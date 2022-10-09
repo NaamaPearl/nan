@@ -79,7 +79,6 @@ class BurstDataset(Dataset, ABC):
 
     def __init__(self, args, mode: Mode, scenes=(), random_crop=True):
         assert type(Mode.train) is Mode
-        # assert mode in ['train', 'test', 'validation']
         self.args = copy(args)
         self.mode = mode
         self.num_source_views = args.num_source_views

@@ -51,10 +51,7 @@ def kernel_fused_mean_variance(x, weight):
 
 def softmax3d(x, dim):
     R, S, k, _, V, C = x.shape
-    return nn.functional.softmax(x.reshape((R, S, -1, C)), dim=-2).view(
-        x.shape)  ## TODO exchange to pytorch implementation
-    exp_x = torch.exp(x)
-    return exp_x / (exp_x.sum(dim=dim, keepdim=True) + TINY_NUMBER)
+    return nn.functional.softmax(x.reshape((R, S, -1, C)), dim=-2).view(x.shape)
 
 
 class KernelBasis(nn.Module):
@@ -169,14 +166,13 @@ class NanMLP(nn.Module):
 
     def forward(self, rgb_feat, ray_diff, mask, rgb_in, sigma_est):
         """
-        @param sigma_est:
-        @param mask:
-        @param rgb_feat: rgbs and image features [n_rays, n_samples, n_views, n_feat]
-        @param ray_diff: ray direction difference [n_rays, n_samples, k, k, n_views, 4], first 3 channels are directions,
-        last channel is inner product
-        @param norm_pos: mask for whether each projection is valid or not. [n_rays, n_samples, n_views, 1]
-        @return: rgb and density output, [n_rays, n_samples, 4]
-        :param rgb_in:  # [n_rays, n_samples, k, k, n_views, 4]
+        :param rgb_feat: rgbs and image features [R, S, k, k, N, F]
+        :param ray_diff: ray direction difference [R, S, 1, 1, N, 4], first 3 channels are directions, last channel is inner product
+        :param mask: [R, S, 1, 1, N, 1]
+        :param rgb_in:  # [R, S, k, k, N, 3]
+        :param sigma_est: [R, S, k, k, N, 3]
+        :return: rgb [R, S, 3], density [R, S, 1], rgb weights [R, S, k, k, N, 3].
+                 For debug: rgb_in and features at the beggining of rho calculation [R, S, F*2+1]
         """
 
         # [n_rays, n_samples, n_views, 3*n_feat]

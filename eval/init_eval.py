@@ -63,6 +63,10 @@ def rearrange_args_for_eval(additional_eval_args, differ_from_train_args):
         new_eval_args.no_reload = eval_args.no_reload
         new_eval_args.process_output = eval_args.process_output
         new_eval_args.local_rank = eval_args.local_rank
+        new_eval_args.eval_images = eval_args.eval_images
+        new_eval_args.eval_rays = eval_args.eval_rays
+        new_eval_args.rerun = eval_args.rerun
+        new_eval_args.post = eval_args.post
 
         # Change the specific args from training
         for arg_name, arg_val in differ_from_train_args:
