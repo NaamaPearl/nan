@@ -119,7 +119,21 @@ class Trainer:
         return self.last_weights_path
 
     def training_loop(self, train_data):
-        # Create object that generate the rays
+        """
+
+        :param train_data: dict {camera: (B, 34),
+                                 src_rgbs_clean: (B, N, H, W, 3),
+                                 src_rgbs: (B, N, H, W, 3),
+                                 src_cameras: (B, N, 34),
+                                 depth_range: (1, 2),
+                                 sigma_estimate: (B, N, H, W, 3),
+                                 white_level: (1, 1),
+                                 rgb_clean: (B, H, W, 3), rgb: (B, H, W, 3),
+                                 gt_depth: ,
+                                 rgb_path: list(B)}
+        :return:
+        """
+        # Create object that generate and sample rays
         ray_sampler = RaySampler(train_data, self.device)
         N_rand = int(1.0 * self.args.N_rand * self.args.num_source_views / train_data['src_rgbs'][0].shape[0])
 
@@ -129,7 +143,7 @@ class Trainer:
                                                  center_ratio=self.args.center_ratio,
                                                  clean=self.args.sup_clean)
         # Calculate the feature maps of all views.
-        # This step is seperared because in evaluation time we want to do it once for each image.
+        # This step is seperated because in evaluation time we want to do it once for each image.
         org_src_rgbs = ray_sampler.src_rgbs.to(self.device)
         proc_src_rgbs, featmaps = self.ray_render.calc_featmaps(src_rgbs=org_src_rgbs)
 

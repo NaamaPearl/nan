@@ -347,7 +347,7 @@ class SpacesFreeDataset(NoiseDataset):
                 ref_intrinsics[0] *= w_img / w_in_view
                 ref_intrinsics[1] *= h_img / h_in_view
             ref_c2w = all_c2w_mats[idx]
-            ref_camera = self.create_camera(ref_rgb, ref_intrinsics, ref_c2w)
+            ref_camera = self.create_camera_vector(ref_rgb, ref_intrinsics, ref_c2w)
 
             ref_cameras.append(ref_camera)
             h, w = ref_rgb.shape[:2]

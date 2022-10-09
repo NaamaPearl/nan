@@ -83,7 +83,7 @@ class GoogleScannedDataset(NoiseDataset):
         rgb = self.read_image(rgb_files[id_render])
 
         intrinsics = np.loadtxt(intrinsics_files[id_render])
-        camera = self.create_camera(rgb, intrinsics, render_pose)
+        camera = self.create_camera_vector(rgb, intrinsics, render_pose)
 
         depth_range = self.final_depth_range(render_pose=render_pose)
 
@@ -95,7 +95,7 @@ class GoogleScannedDataset(NoiseDataset):
 
             src_rgbs.append(src_rgb)
             intrinsics = np.loadtxt(intrinsics_files[idx])
-            src_camera = self.create_camera(src_rgb, intrinsics, pose)
+            src_camera = self.create_camera_vector(src_rgb, intrinsics, pose)
             src_cameras.append(src_camera)
 
         src_rgbs = np.stack(src_rgbs)

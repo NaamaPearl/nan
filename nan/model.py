@@ -92,7 +92,7 @@ class NANScheme(nn.Module):
         self.start_step = self.load_from_ckpt(out_folder,
                                               load_opt=not args.no_load_opt,
                                               load_scheduler=not args.no_load_scheduler,
-                                              init_for_train=init_for_train)
+                                              init_for_train=init_for_train)  # TODO remove init_for_train?
 
     # @property
     # def net_coarse(self):
@@ -103,7 +103,7 @@ class NANScheme(nn.Module):
     #     return self.mlps['fine']
 
     def create_optimizer(self):
-        # if not args.froze_mlp:
+        # if not args.froze_mlp: # TODO Naama remove
         params_list = [{'params': self.feature_net.parameters(), 'lr': self.args.lrate_feature},
                        {'params': self.net_coarse.parameters(),  'lr': self.args.lrate_mlp}]
         if self.net_fine is not None:
@@ -116,7 +116,7 @@ class NANScheme(nn.Module):
 
         optimizer = torch.optim.Adam(params_list)
 
-        if self.args.n_iters > 50001:
+        if self.args.n_iters > 50001: # TODO remove
             def lr_schedule(step):
                 if step < 10000:
                     return 1

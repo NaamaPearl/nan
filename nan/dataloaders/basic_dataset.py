@@ -127,7 +127,14 @@ class BurstDataset(Dataset, ABC):
         raise NotImplementedError
 
     @staticmethod
-    def create_camera(rgb, intrinsics, pose):
+    def create_camera_vector(rgb, intrinsics, pose):
+        """
+        Creating camera representative vector (used by IBRNet)
+        :param rgb: (H, W, 3)
+        :param intrinsics: (4, 4)
+        :param pose: (4, 4)
+        :return: camera vector (34) (H, W, K.flatten(), (R|t).flatten())
+        """
         return np.concatenate((rgb.shape[:2], intrinsics.flatten(), pose.flatten())).astype(np.float32)
 
 

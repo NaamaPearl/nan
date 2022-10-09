@@ -123,9 +123,9 @@ class RealEstateDataset(NoiseDataset):
         cam_params = parse_pose_file(camera_file)
         cam_param = cam_params[timestamps[id_render]]
 
-        camera = self.create_camera(rgb,
-                                    unnormalize_intrinsics(cam_param.intrinsics, self.target_h, self.target_w),
-                                    cam_param.c2w_mat)
+        camera = self.create_camera_vector(rgb,
+                                           unnormalize_intrinsics(cam_param.intrinsics, self.target_h, self.target_w),
+                                           cam_param.c2w_mat)
 
         # get depth range
         depth_range = self.final_depth_range()
@@ -136,9 +136,9 @@ class RealEstateDataset(NoiseDataset):
             src_rgb = self.read_image(rgb_files[idx], h=self.target_h, w=self.target_w)
             src_rgbs.append(src_rgb)
             cam_param = cam_params[timestamps[idx]]
-            src_camera = self.create_camera(src_rgb,
-                                            unnormalize_intrinsics(cam_param.intrinsics, self.target_h, self.target_w),
-                                            cam_param.c2w_mat)
+            src_camera = self.create_camera_vector(src_rgb,
+                                                   unnormalize_intrinsics(cam_param.intrinsics, self.target_h, self.target_w),
+                                                   cam_param.c2w_mat)
 
             src_cameras.append(src_camera)
 

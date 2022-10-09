@@ -24,6 +24,11 @@ rng = np.random.RandomState(234)
 
 
 def parse_camera(params):
+    """
+    Parse camera vector (34) to H, W, K, R|t
+    :param params:  camera vector (34)
+    :return: W, H, K (Bx4x4), R|t (Bx4x4)
+    """
     H = params[:, 0]
     W = params[:, 1]
     intrinsics = params[:, 2:18].reshape((-1, 4, 4))
@@ -33,6 +38,23 @@ def parse_camera(params):
 
 class RaySampler:
     def __init__(self, data, device, resize_factor=1, render_stride=1):
+        """
+        Object that handle the sampling of the rays from the target images (pick the pixels to generate rays from).
+        Only batch size 1 is supported (B = 1)
+        :param data: dict {camera: (B, 34),
+                                 src_rgbs_clean: (B, N, H, W, 3),
+                                 src_rgbs: (B, N, H, W, 3),
+                                 src_cameras: (B, N, 34),
+                                 depth_range: (1, 2),
+                                 sigma_estimate: (B, N, H, W, 3),
+                                 white_level: (1, 1),
+                                 rgb_clean: (B, H, W, 3), rgb: (B, H, W, 3),
+                                 gt_depth: ,
+                                 rgb_path: list(B)}
+        :param device:
+        :param resize_factor: float
+        :param render_stride: int
+        """
         super().__init__()
         self.render_stride                  = render_stride
         self.rgb_path                       = data['rgb_path']
@@ -43,7 +65,7 @@ class RaySampler:
         self.rgb                            = data['rgb'] if 'rgb' in data.keys() else None
         self.src_rgbs                       = data['src_rgbs'] if 'src_rgbs' in data.keys() else None
         self.rgb_clean                      = data['rgb_clean'] if 'rgb_clean' in data.keys() else None
-        self.src_rgbs_clean                  = data['src_rgbs_clean'] if 'src_rgbs_clean' in data.keys() else None
+        self.src_rgbs_clean                 = data['src_rgbs_clean'] if 'src_rgbs_clean' in data.keys() else None
 
         self.sigma_estimate                 = data['sigma_estimate'] if 'sigma_estimate' in data.keys() else None
 
@@ -53,6 +75,7 @@ class RaySampler:
         W, H, self.intrinsics, self.c2w_mat = parse_camera(self.camera)
         self.batch_size                     = len(self.camera)
 
+        assert H.shape[0] == 1
         self.H = int(H[0])
         self.W = int(W[0])
 
@@ -82,7 +105,7 @@ class RaySampler:
         :param W: image width
         :param intrinsics: 4 by 4 intrinsic matrix
         :param c2w: 4 by 4 camera to world extrinsic matrix
-        :return:
+        :return: all rays of a target image: rays origin (H*W, 3), rays direction (H*W, 3), pixels coordinate + (1,) (H*W, 3)
         """
         x, y = np.meshgrid(np.arange(W)[::self.render_stride], np.arange(H)[::self.render_stride])
         x = x.reshape(-1).astype(dtype=np.float32)  # + 0.5    # add half pixel
@@ -146,12 +169,25 @@ class RaySampler:
 
     def random_ray_batch(self, N_rand, sample_mode, center_ratio=0.8, clean=False):
         """
-        :param N_rand: number of rays to be casted
-        :return:
-        @param N_rand:
-        @param clean:
-        @param center_ratio:
-        @param sample_mode:
+        Select random N_rand rays.
+        :param N_rand: number of rays in a batch (R)
+        :param sample_mode: 'center', 'uniform', 'crop'
+        :param center_ratio: arguments for sampling mode 'center'
+        :param clean: if set to True, the rgb values in the rays batch will be clean,
+                      otherwise it will have the noisy values.
+                      This is determined by args.sup_clean.
+                      It effects whether the loss function is WRT the clean values (supervied),
+                       or WRT noisy values (unsupervised) (as in NeRF in the Dark)
+
+        :return: batch of rays and more relevant data for the batch , Dict {ray_o: (R, 3),
+                                                                           ray_d: (R, 3),
+                                                                           camera: (1, 34),
+                                                                           depth_range: (1, 2),
+                                                                           src_cameras: (1, N, 34),
+                                                                           selected_inds: (R,),
+                                                                           xyz: (R, 3),
+                                                                           rgb: (R, 3),
+                                                                           white_level: (1, 1)}
         """
 
         select_inds = self.sample_random_pixels(N_rand, sample_mode, center_ratio)
@@ -160,7 +196,22 @@ class RaySampler:
 
     def specific_ray_batch(self, select_inds, clean=False):
         """
-        :return:
+        Select specific N_rand rays by select_inds
+        :param select_inds: R indices of rays to choose
+        :param clean: if set to True, the rgb values in the rays batch will be clean,
+                      otherwise it will have the noisy values.
+                      This is detemined by args.sup_clean.
+                      It effect whether the loss function is WRT the clean values (supervied),
+                       or WRT noisy values (unsupervies) (as in NeRF in the Dark)
+        :return: batch of rays and more relevant data for the batch. Dict {ray_o: (R, 3),
+                                                                           ray_d: (R, 3),
+                                                                           camera: (1, 34),
+                                                                           depth_range: (1, 2),
+                                                                           src_cameras: (1, N, 34),
+                                                                           selected_inds: (R,),
+                                                                           xyz: (R, 3),
+                                                                           rgb: (R, 3),
+                                                                           white_level: (1, 1)}
         """
         rgb_inds = select_inds
         if clean:
@@ -183,21 +234,3 @@ class RaySampler:
         select_inds = [x + self.W * y for y, x in pixel]
         shuffle(select_inds)
         return self.specific_ray_batch(select_inds, clean=clean)
-
-    def expand_inds(self, select_inds):
-        xys = self.xy[select_inds, :2]
-
-        x_range = np.arange(-1, 2)
-        y_range = np.arange(-1, 2)
-
-        kernel_expander = np.stack(np.meshgrid(x_range, y_range))
-
-        xys_expanded = xys.unsqueeze(-1).unsqueeze(-1) + kernel_expander
-
-        xys_expanded[xys_expanded < 0] = 0
-        xys_expanded[:, 0][xys_expanded[:, 0] >= self.W] = self.W - 1
-        xys_expanded[:, 1][xys_expanded[:, 1] >= self.H] = self.H - 1
-
-        selected_inds_expanded = xys_expanded[:, 0] + self.W * xys_expanded[:, 1]
-
-        return selected_inds_expanded

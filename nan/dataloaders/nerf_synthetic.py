@@ -100,7 +100,7 @@ class NerfSyntheticDataset(NoiseDataset):
 
         rgb = self.read_image(rgb_file)
         rgb = rgb[..., [-1]] * rgb[..., :3] + 1 - rgb[..., [-1]]
-        camera = self.create_camera(rgb, render_intrinsics, render_pose)
+        camera = self.create_camera_vector(rgb, render_intrinsics, render_pose)
 
         nearest_pose_ids = get_nearest_pose_ids(render_pose,
                                                 train_poses,
@@ -118,7 +118,7 @@ class NerfSyntheticDataset(NoiseDataset):
             train_intrinsics_ = train_intrinsics[idx]
 
             src_rgbs.append(src_rgb)
-            src_camera = self.create_camera(src_rgb, train_intrinsics_, train_pose)
+            src_camera = self.create_camera_vector(src_rgb, train_intrinsics_, train_pose)
             src_cameras.append(src_camera)
 
         src_rgbs = np.stack(src_rgbs, axis=0)

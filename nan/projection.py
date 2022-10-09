@@ -18,6 +18,10 @@ import torch.nn.functional as F
 
 
 class Projector:
+    """
+    Project that project 3D points to pixel locations in the other views and extract the relevant
+    values in images and features maps.
+    """
     def __init__(self, device, args):
         self.kernel_size = args.kernel_size
         self.kernel_enum = prod(args.kernel_size)

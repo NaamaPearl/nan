@@ -71,7 +71,7 @@ class DeepVoxelsDataset(NoiseDataset):
 
         rgb = self.read_image(rgb_file)
         render_pose = np.loadtxt(pose_file).reshape(4, 4)
-        camera = self.create_camera(rgb, intrinsics, render_pose)
+        camera = self.create_camera_vector(rgb, intrinsics, render_pose)
 
         nearest_pose_ids = get_nearest_pose_ids(render_pose,
                                                 train_poses,
@@ -88,7 +88,7 @@ class DeepVoxelsDataset(NoiseDataset):
             train_pose = train_poses[idx]
 
             src_rgbs.append(src_rgb)
-            src_camera = self.create_camera(src_rgb, intrinsics, train_pose)
+            src_camera = self.create_camera_vector(src_rgb, intrinsics, train_pose)
             src_cameras.append(src_camera)
 
         src_rgbs = np.stack(src_rgbs, axis=0)
