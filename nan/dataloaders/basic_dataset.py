@@ -98,9 +98,12 @@ class BurstDataset(Dataset, ABC):
         if len(scenes) > 0:
             if isinstance(scenes, str):
                 scenes = [scenes]
-            return [self.folder_path / scene for scene in scenes]  # TODO Naama doesn't work in ibrnet_collected
+            return self.get_specific_scenes(scenes)
         else:
             return self.get_all_scenes()
+
+    def get_specific_scenes(self, scenes):
+        return [self.folder_path / scene for scene in scenes]
 
     def get_all_scenes(self):
         return self.listdir(self.folder_path)

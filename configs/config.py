@@ -272,7 +272,6 @@ class CustomArgumentParser(configargparse.ArgumentParser):
         if verbose:
             print(f"[*] losses: {loss_dict}")
         if 'ssim' in loss_dict:
-            # TODO nan loss
             if verbose:
                 print(f"[*] changing sample mode from {args.sample_mode=} to 'crop'")
                 print(f"[*] changing N_rand from {args.N_rand=} to {math.ceil(args.N_rand ** 0.5) ** 2} for patch loss")

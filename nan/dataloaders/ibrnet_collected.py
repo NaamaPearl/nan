@@ -35,7 +35,8 @@ class IBRNetCollectedDataset(COLMAPDataset):
     def folder_path(self) -> Tuple[Path, ...]:
         return tuple((DATA_DIR / name for name in self.dir_name))
 
-    def pick_scenes(self, scenes):
+    def get_specific_scenes(self, scenes):
+        # in this case you should determine which are the scenes from which directory
         raise NotImplementedError
 
     def get_all_scenes(self):

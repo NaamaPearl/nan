@@ -23,12 +23,12 @@ class RaysOutput:
         self.debug = debug
 
     @classmethod
-    def raw2output(cls, rgb, rho, z_vals, mask, white_bkgd=False):
+    def raw2output(cls, rgb, rho, z_vals, pts_mask, white_bkgd=False):
         """
         :param rgb: rgb network output; tensor of shape [R, S, 3]
         :param rho: rho network output; tensor of shape [R, S, 1]
         :param z_vals: depth of point samples along rays; tensor of shape [R, S]
-        :param mask: [R, S]
+        :param pts_mask: [R, S, N, 1]
         :param white_bkgd: Used to handle scenes with white background
         :return: RaysOutput object: rgb: [N_rays, 3], depth: [N_rays,], weights: [N_rays,]
         """
@@ -55,7 +55,6 @@ class RaysOutput:
         # maths show weights, and summation of weights along a ray, are always inside [0, 1]
         weights = alpha * T  # [N_rays, N_samples]
         weights[rho.sum(1) < 1e-3] /= weights[rho.sum(1) < 1e-3].sum(1, keepdim=True)
-        mask = mask.sum(dim=1) > 8  # should at least have 8 valid observation on the ray,
         rgb_map = torch.sum(unsqueeze_like(weights, rgb) * rgb, dim=1)  # [N_rays, 3]
 
         if white_bkgd:
@@ -64,10 +63,16 @@ class RaysOutput:
         # otherwise don't consider its loss
         depth_map = torch.sum(weights * z_vals, dim=-1)  # [N_rays,]
 
+        # mask calculation
+        # Calculate the pixel mask in the target view, based on the mask of points along the ray
+        pts_mask = pts_mask[..., 0].sum(
+            dim=2) > 1  # [N_rays, N_samples], a 3D points is valid if it is valid for at least 2 of the src views
+        pixel_mask = pts_mask.sum(dim=1) > 8  # should at least have 8 valid observation on the ray,
+
         return cls(rgb_map=rgb_map,
                    depth_map=depth_map,
                    weights=weights,
-                   mask=mask,
+                   mask=pixel_mask,
                    alpha=alpha,
                    z_vals=z_vals,
                    rho=rho)

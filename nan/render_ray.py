@@ -40,7 +40,7 @@ def sample_pdf(bins, weights, N_samples, det=False):
     # Take uniform samples
     if det:
         u = torch.linspace(0., 1., N_samples, device=bins.device)
-        u = u.unsqueeze(0).expand(bins.shape[0], 1)  # [N_rays, N_samples]    # TODO Naama det doesnt work
+        u = u.unsqueeze(0).expand(bins.shape[0], -1)  # [N_rays, N_samples]
     else:
         u = torch.rand(bins.shape[0], N_samples, device=bins.device)
 
@@ -257,11 +257,7 @@ class RayRender:
         rgb_out, rho_out, *debug_info = self.model.mlps[level](rgb_feat, ray_diff,
                                                                pts_mask.unsqueeze(-3).unsqueeze(-3),
                                                                org_rgb, sigma_est)
-
-        # Calculate the pixel mask in the target view, based on the mask of points along the ray
-        # TODO check what is going on with the mask calculation inside raw2output
-        pixel_mask = pts_mask[..., 0].sum(dim=2) > 1  # [N_rays, N_samples], should at least have 2 observations
-        ray_outputs = RaysOutput.raw2output(rgb_out, rho_out, z_vals, pixel_mask, white_bkgd=self.white_bkgd)
+        ray_outputs = RaysOutput.raw2output(rgb_out, rho_out, z_vals, pts_mask, white_bkgd=self.white_bkgd)
 
         if save_idx is not None:
             debug_dict = {}

@@ -119,7 +119,8 @@ class Projector:
         :param featmaps: [N, C, H', W']
         :return: rgb_feat_sampled: [R, S, k, k, N, 3+F],
                  ray_diff: [R, S, 1, 1, N, 4],
-                 mask: [R, S, N, 1],
+                 3D points mask: [R, S, N, 1], 3D point is valid only if it is not behind the frame
+                                               and if the projected pixel is inbound the view frame
                  org_rgbs_sampled: [R, S, k, k, N, 3+F],
                  sigma_estimate: [R, S, k, k, N, 3+F]
         """

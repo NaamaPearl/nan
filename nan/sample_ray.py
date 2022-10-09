@@ -116,7 +116,6 @@ class RaySampler:
 
         rays_d = (c2w[:, :3, :3].bmm(torch.inverse(intrinsics[:, :3, :3])).bmm(batched_pixels)).transpose(1, 2)
         rays_d = rays_d.reshape(-1, 3)
-        # TODO we can use broadcast instead of repeat
         rays_o = c2w[:, :3, 3].unsqueeze(1).expand(1, rays_d.shape[0], 3).reshape(-1, 3)  # B x HW x 3
         batched_pixels = batched_pixels.transpose(1, 2).reshape(-1, 3)
         return rays_o, rays_d, batched_pixels.to(int)
