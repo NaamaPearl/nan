@@ -1,6 +1,6 @@
 ### INPUT
-expname                     : sanity_check
-render_stride               : 8 # TODO 2  # used in evaluation
+expname                     : reproduce
+render_stride               : 2 # TODO 2  # used in evaluation
 distributed                 : False
 
 ## dataset

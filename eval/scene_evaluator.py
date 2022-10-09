@@ -19,7 +19,6 @@ from nan.sample_ray import RaySampler
 from nan.utils.eval_utils import SSIM, img2psnr
 from nan.utils.geometry_utils import warp_KRt_wrapper
 
-
 lpips_fn = lpips.LPIPS(net='alex').double()
 ssim_fn = SSIM(window_size=11)
 psnr_fn = img2psnr
@@ -58,8 +57,8 @@ class Summary:
         self.depth_mse.append(depth_mse)
 
     def single_dict(self, i, level):
-        return {f'{level}_psnr' : self.psnr[i],
-                f'{level}_ssim' : self.ssim[i],
+        return {f'{level}_psnr': self.psnr[i],
+                f'{level}_ssim': self.ssim[i],
                 f'{level}_lpips': self.lpips[i],
                 f'{level}_depth': self.depth_mse[i],
                 f'processed_time': self.process_time[i]}
@@ -68,8 +67,8 @@ class Summary:
         return {self.file_id[i]: self.single_dict(i, level) for i in range(len(self.psnr))}
 
     def mean_dict(self, level):
-        result_dict = {f'{level}_mean_psnr' : self.psnr.mean(),
-                       f'{level}_mean_ssim' : self.ssim.mean(),
+        result_dict = {f'{level}_mean_psnr': self.psnr.mean(),
+                       f'{level}_mean_ssim': self.ssim.mean(),
                        f'{level}_mean_lpips': self.lpips.mean(),
                        f'{level}_mean_depth': self.depth_mse.mean()}
 
@@ -100,7 +99,19 @@ SEPARATOR = get_separator(STRING_FMT, TABLE_WIDTH, TABLE_COLUMN)
 class SceneEvaluator:
     CMAP = plt.get_cmap('jet')
 
-    def __init__(self, additional_eval_args, differ_args, rerun=True, post='', eval_images=True, eval_rays=True):
+    def __init__(self, additional_eval_args, differ_args, rerun=True, post='', eval_images: bool = True,
+                 eval_rays: bool = True):
+        """
+
+        :param additional_eval_args: additional args to pass to the evaluation
+               (different from the default config, like ckpt, scenes)
+        :param differ_args: if args.same = True in the default eval config, the model setup is copied from the train
+               config. These are args that should be different from the training setup when using args.same = True
+        :param rerun: whether to run inference again on the network or load existing results and just calculate metrics
+        :param post: suffix of images name (for example, to calculate PSNR after post-processing, using rerun = True)
+        :param eval_images: whether to evaluate the full images
+        :param eval_rays: whether to evaluate specific rays in the images
+        """
         self.eval_rays = eval_rays
         self.eval_images = eval_images
         self.rerun = rerun
@@ -126,7 +137,8 @@ class SceneEvaluator:
         return f"running mean coarse: {self.coarse_sum}\nrunning mean fine:{self.fine_sum}"
 
     @classmethod
-    def scene_evaluation(cls, add_args, differ_args, rerun=True, post='', eval_images=True, eval_rays=True):  # TODO move images, rays to args
+    def scene_evaluation(cls, add_args, differ_args, rerun=True, post='', eval_images=True,
+                         eval_rays=True):  # TODO move images, rays to args
         evaluator = cls(add_args, differ_args, rerun, post, eval_images=eval_images, eval_rays=eval_rays)
         return evaluator.start_scene_evaluation()
 
@@ -206,8 +218,9 @@ class SceneEvaluator:
 
     def save_input(self, data, file_id):
         src_rgbs = data['src_rgbs'][0].cpu().numpy()
-        noisy_rgb = data['rgb'][0]
         averaged_img = np.mean(src_rgbs, axis=0)
+
+        noisy_rgb = data['rgb'][0]
 
         if self.eval_args.process_output:
             noisy_rgb = de_linearize(noisy_rgb, data['white_level'])
@@ -233,7 +246,7 @@ class SceneEvaluator:
             pred_depth_coarse = torch.zeros_like(pred_fine[..., 0])
 
         rays_output = {'coarse': RaysOutput(rgb_map=pred_coarse, depth_map=pred_depth_coarse),
-                       'fine'  : RaysOutput(rgb_map=pred_fine, depth_map=pred_depth_fine)}
+                       'fine': RaysOutput(rgb_map=pred_fine, depth_map=pred_depth_fine)}
         process_time = 0
 
         return rays_output, process_time

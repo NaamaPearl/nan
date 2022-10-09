@@ -71,6 +71,15 @@ def sample_pdf(bins, weights, N_samples, det=False):
 
 
 class RayRender:
+    """
+    Object that handle the actual rendering:
+    * Calculating features maps
+    * Sampling 3D points along a ray
+    * Projecting them to each of the other views
+    * Feeding the network with the incident pixels
+    * Rendering rho and RGB values to each 3D point along a ray
+    * Aggregate the values from 3D points along a specific ray
+    """
     def __init__(self, model: NANScheme, args, device, save_pixel=None):
         self.model = model
         self.device = device
@@ -82,6 +91,7 @@ class RayRender:
         self.det = args.det
         self.white_bkgd = args.white_bkgd
 
+        # For debug purposes
         if save_pixel is not None:
             y, x = tuple(zip(*save_pixel))
             self.save_pixels = torch.tensor((x, y, (1,) * len(x)))
@@ -258,11 +268,16 @@ class RayRender:
         return outputs
 
     def calc_featmaps(self, src_rgbs):
+        """
+        Calculating the features maps of the source views
+        :param src_rgbs: (1, N, H, W, 3)
+        :return: src_rgbs after pre_net (if exists) (1, N, H, W, 3),
+                 features maps: dict {'coarse': (N, C, H', W'), 'fine': (N, C, H', W')}
+        """
         if self.model.pre_net is not None:
-            src_rgbs = self.model.pre_net(src_rgbs.squeeze(0).permute(0, 3, 1, 2)).permute(
-                # TODO redundant permute calls
-                (0, 2, 3, 1)).unsqueeze(0)
-            featmaps = self.model.feature_net(src_rgbs.squeeze(0).permute(0, 3, 1, 2))
+            src_rgbs = self.model.pre_net(src_rgbs.squeeze(0).permute(0, 3, 1, 2))  # (N, 3, H, W)
+            featmaps = self.model.feature_net(src_rgbs)
+            src_rgbs = src_rgbs.permute((0, 2, 3, 1)).unsqueeze(0)  # (1, N, H, W, 3)
         else:
             featmaps = self.model.feature_net(src_rgbs.squeeze(0).permute(0, 3, 1, 2))
 

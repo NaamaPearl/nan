@@ -8,8 +8,8 @@ eval_dataset : llff_test
 eval_scenes  : fern
 
 ### TESTING
-chunk_size    : 128 # TODO 2048
-render_stride : 4
+chunk_size    : 2048
+render_stride : 1
 
 ## ADDITIONAL
 same          : True

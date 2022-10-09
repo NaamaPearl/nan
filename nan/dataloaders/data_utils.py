@@ -252,6 +252,14 @@ def get_nearest_pose_ids(tar_pose, ref_poses, num_select, tar_id=None, angular_d
     return selected_ids.tolist()
 
 
-def to_uint(im, bits=16):
-    im = np.clip(im, a_min=0, a_max=1.)
-    return ((2 ** bits - 1) * im).astype(np.uint16)
+def to_uint(im, bits=16, clip=True, norm_max=False):
+    if norm_max:
+        im = im / im.max()
+    if clip:
+        im = np.clip(im, a_min=0, a_max=1.)
+    if bits == 8:
+        return ((2 ** bits - 1) * im).astype(np.uint8)
+    elif bits == 16:
+        return ((2 ** bits - 1) * im).astype(np.uint8)
+    else:
+        raise NotImplementedError
