@@ -1,6 +1,8 @@
 # NAN: Noise-Aware NeRFs for Burst Denoising
 
-#### [project page <mark>TODO](https://noise-aware-nerf.github.io) | [paper](https://arxiv.org/abs/2204.04668) | [data & model <mark>TODO]()
+#### [project page](https://noise-aware-nerf.github.io) | [paper](https://arxiv.org/abs/2204.04668) 
+
+[//]: # (| [model <mark>TODO]&#40;&#41;)
 PyTorch implementation of the paper "NAN: Noise-Aware NeRFs for Burst Denoising", CVPR 2022.
 
 > NAN: Noise-Aware NeRFs for Burst Denoising
@@ -13,13 +15,13 @@ Our implementation is based on the paper "IBRNet: Learning Multi-View Image-Base
 
 
 ## Installation
-Clone this repository <mark>TODO
+Clone this repository
 ```
-git clone --recurse-submodules https://github.com/NaamaPearl/nan 
+git clone https://github.com/NaamaPearl/nan 
 cd nan/
 ```
 
-The code is tested with Python3.8, PyTorch == *** and CUDA == ***. To create the anaconda environment: <mark>TODO
+The code is tested with Python3.9, PyTorch==1.11 and cudatoolkit=11.1 on NIDIA RTX 3090. To create a conda environment:
 ```
 conda env create -f environment.yml
 conda activate nan
@@ -28,25 +30,34 @@ conda activate nan
 ## Datasets
 Please refer to [IBRNet](https://github.com/googleinterns/IBRNet) for the dataset instruction.
 
-## Evaluation
-Our checkpoints can be downloaded using: <mark>TODO
-```
-gdown ****
-unzip pretrained_model.zip
-```
+[//]: # (## Evaluation)
 
-For evaluation run <mark>TODO
+[//]: # (Our checkpoints can be downloaded using: <mark>TODO)
+
+[//]: # (```)
+
+[//]: # (gdown ****)
+
+[//]: # (unzip pretrained_model.zip)
+
+[//]: # (```)
+
+For evaluation run
 ```
-python -m eval.eval_wrraper
+python -m eval.evaluate
 ```
 This will automatically load `eval.yml` and run evaluation for all scenes and all noise levels.
 The checkpoint will be loaded from the path specified in `eval.yml`
 
-## Rendering videos of smooth camera paths <mark>TODO
-Videos can be geenerated using
-```
-python -m eval.render_llff_video 
-```
+[//]: # (## Rendering videos of smooth camera paths <mark>TODO)
+
+[//]: # (Videos can be generated using)
+
+[//]: # (```)
+
+[//]: # (python -m eval.render_llff_video )
+
+[//]: # (```)
 
 ## Training
 
@@ -58,10 +69,14 @@ python train.py
 (IBRNet train with multiple GPUs. The framework for still exists, but I didn't test it.)
  
  
-## Citation <mark>TODO
+## Citation
 ```
  
-@inproceedings{****
+@inproceedings{pearl2022noiseaware,
+    title={NAN: Noise-Aware NeRFs for Burst-Denoising},
+    author={Pearl, Naama and Treibitz, Tali and Korman, Simon},
+    booktitle=CVPR,
+    year={2022}
 }
 
 ```

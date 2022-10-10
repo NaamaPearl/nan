@@ -138,7 +138,7 @@ class CustomArgumentParser(configargparse.ArgumentParser):
         parser.add_argument("--rgb_weights", action='store_true', help='whether the blending kernels are different '
                                                                        'for each color channel')
         parser.add_argument("--views_attn", action='store_true',
-                            help='determine whether to use the views attention or not')
+                            help='determine whether t o use the views attention or not')
         parser.add_argument("--pre_net", action='store_true',
                             help='whether to add the convolutional layer before the features net')
         parser.add_argument("--noise_feat", action='store_true',
@@ -232,33 +232,6 @@ class CustomArgumentParser(configargparse.ArgumentParser):
                                                                      'Surprisingly, the network can also learn by '
                                                                      'compare the prediction to the noisy input '
                                                                      'sample, which is what RawNeRF is doing.')
-
-        # #### real world processing #####
-        parser.add_argument("--wl", type=float, default=1, help='white balance to apply to the real world images')
-        parser.add_argument("--sn", type=float, default=1,
-                            help='Multiplicative factor for the noise parameters in the real world images')
-
-        parser.add_argument("--adjust", type=bool, default=False,
-                            help='whether to apply adjust to the real world images')
-        parser.add_argument("--adjust_perc", type=float, default=0.01,
-                            help='percentage value for the adjust in the real world images')
-        parser.add_argument("--clip_adjust", type=bool, default=False,
-                            help='whether to clip the images value after applying adjust in the real world images')
-        parser.add_argument("--no_red", type=bool, default=False,
-                            help='whether to apply adjust in the red channel in the real world images')
-        parser.add_argument("--camera_wb", type=bool, default=False,
-                            help='whether to use camera_wb when processing the raw data. parameters are from rawpy')
-        parser.add_argument("--no_auto_bright", type=bool, default=True, help='whether to use no_auto_bright when '
-                                                                              'processing the raw data. parameters '
-                                                                              'are from rawpy')
-        parser.add_argument("--dng_bits", type=int, default=16,
-                            help='number of bits when processing the raw data. parameters are from rawpy')
-        parser.add_argument("--gamma", type=bool, default=False, help='whether to apply gamma correction when '
-                                                                      'processing the raw data. parameters are from '
-                                                                      'rawpy')
-        parser.add_argument("--undistort", type=bool, default=False,
-                            help='whether to apply undistortion to the real world images. Parameters should be in the '
-                                 'opencv format.')
 
         return parser
 
