@@ -13,7 +13,7 @@
 # limitations under the License.
 import sys
 
-from configs.global_setting import DEFAULT_GAIN_LIST
+from configs.experiment_setting import DEFAULT_GAIN_LIST
 from configs.local_setting import EVAL_CONFIG
 from eval.scene_evaluator import SceneEvaluator
 from eval.experiment_list import LLFF_SCENES_LIST

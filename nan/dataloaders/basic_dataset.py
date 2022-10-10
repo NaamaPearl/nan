@@ -17,8 +17,8 @@ class Mode(Enum):
     test = "test"
 
 
-# From my implementation of KPN
-#  https://github.com/NaamaPearl/pkpn/blob/1345462cfb6fe61eee8e0ab30771e3d78b249678/data_generation/kpn_data_provider.py
+# From DeepRep
+# https://github.com/goutamgmb/deep-rep/blob/master/data/postprocessing_functions.py#L73
 
 t = 0.0031308
 gamma = 2.4
@@ -39,7 +39,6 @@ def de_linearize(rgb, wl=1.):
     rgb = rgb / wl
     srgb = torch.where(rgb > t, (1 + a) * torch.clamp(rgb, min=t) ** (1 / gamma) - a, k0 * rgb)
 
-    # From deep-rep/data/postprocessing_functions.py  DenoisingPostProcess
     k1 = (1 + a) * (1 / gamma)
     srgb = torch.where(rgb > 1, k1 * rgb - k1 + 1, srgb)
     return srgb

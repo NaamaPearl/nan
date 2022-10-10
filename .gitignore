@@ -2,6 +2,7 @@
 out
 logs
 data
+figures
 
 *.png
 *.pth

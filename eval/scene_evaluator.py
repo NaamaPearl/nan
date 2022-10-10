@@ -144,7 +144,7 @@ class SceneEvaluator:
         if self.eval_args.eval_dataset != 'usfm':
             filename = f'{self.eval_args.post}psnr_{self.scene_name}_{self.model.start_step}'
             results_dict = self.get_all_results_dict()
-            self.save_results(results_dict, self.res_dir.parent / f'{filename}.npy')
+            self.save_npy(results_dict, self.res_dir.parent / f'{filename}.npy')
             self.print_result(results_dict, sum_results_dict, f=None)
             with open(str(self.res_dir.parent / f"{filename}.txt"), "w") as f:
                 self.print_result(results_dict, sum_results_dict, f=f)
@@ -401,7 +401,7 @@ class SceneEvaluator:
             print(SEPARATOR, file=f)
 
     @staticmethod
-    def save_results(results_dict, fpath):
+    def save_npy(results_dict, fpath):
         assert len(results_dict) == 1
         results_dict = list(results_dict.values())[0]
         res = np.array([[v for v in im_res.values()] for (image, im_res) in results_dict.items()])

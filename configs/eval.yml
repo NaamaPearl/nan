@@ -1,6 +1,6 @@
 ### INPUT
 
-#ckpt_path     : /home/npearl/Documents/PycharmProjects/nan/out/sanity_check__NAN/model_005000.pth  # TODO 0 Naama
+ckpt_path     : out/reproduce__NAN/model_255000.pth
 distributed   : False
 
 ## dataset
@@ -15,10 +15,9 @@ render_stride : 1
 same          : True
 num_source_views : 8
 
-## EVAL
-# eval_images : True # TODO
-# eval_rays : True # TODO
-# rerun : True # TODO
+ eval_images : True
+ eval_rays   : True
+ rerun       : True
 
 process_output : True
 

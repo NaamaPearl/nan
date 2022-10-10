@@ -1,6 +1,6 @@
 ### INPUT
 expname                     : reproduce
-render_stride               : 2 # TODO 2  # used in evaluation
+render_stride               : 2 # used in evaluation
 distributed                 : False
 
 ## dataset
@@ -10,17 +10,17 @@ eval_scenes                 : [fern, orchids, flower, horns, leaves, room, trex,
 
 ### TRAINING
 n_iters                     : 255000
-N_rand                      : 64 # TODO 512
+N_rand                      : 512
 lrate_feature               : 0.001
 lrate_mlp                   : 0.0005
 lrate_decay_factor          : 0.5
 lrate_decay_steps           : 50000
 losses                      : [l2, l1, l1_grad, ssim]
 losses_weights              : [0,  1,  0,       0]
-workers                     : 0 # TODO Naama
+workers                     : 0
 
 ### TESTING
-chunk_size                  : 128 # TODO 2048   # can be bigger depend on the gpu memory
+chunk_size                  : 2048 # can be bigger depend on the gpu memory
 
 ### RENDERING
 N_importance                : 64
@@ -35,7 +35,7 @@ i_tb                        : 20
 i_weights                   : 5000
 
 ### additional
-#ckpt_path                   : out/pretrained/model_255000.pth   # use this if you want to train from a specific checkpoint.
+#ckpt_path                   : out/NAN/model_255000.pth   # use this if you want to train from a specific checkpoint.
 no_load_opt                 : False
 no_load_scheduler           : False
 sup_clean                   : True

@@ -1,6 +1,6 @@
 ### INPUT
 
-ckpt_path     : D:\Naama\Documents\Projects\nan\out\unproc_gamma_wl____full__pre__expand_rgb_3_3_3__blend_src__views_attn__noise_feat__l1\model_255000.pth
+ckpt_path     : out/reproduce__NAN/model_255000.pth
 distributed   : False
 
 ## dataset
