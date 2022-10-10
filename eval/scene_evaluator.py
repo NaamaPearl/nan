@@ -11,7 +11,7 @@ import time
 from eval.evaluate_rays import analyze_per_pixel
 from eval.init_eval import init_eval
 from nan.dataloaders.basic_dataset import de_linearize
-from nan.dataloaders.data_utils import to_uint
+from nan.dataloaders.data_utils import to_uint, imwrite, imread
 from nan.raw2output import RaysOutput
 from nan.render_image import render_single_image
 from nan.render_ray import RayRender
@@ -115,7 +115,7 @@ class SceneEvaluator:
                                                                                                 differ_from_train_args=differ_args)
         self.model.switch_to_eval()
         self.device = torch.device(f'cuda:{self.eval_args.local_rank}')
-        self.ours = self.check_if_ours()
+        self.ours = self.is_ours()
 
     @property
     def coarse_sum(self):
@@ -174,7 +174,7 @@ class SceneEvaluator:
         else:
             psnr, ssim, lpips = 0, 0, 0
 
-        # predicted depth
+        # predicted depth, save depth_map
         pred_depth, depth_error = self.depth_evaluation(rays_output, data, level, file_id)
 
         self.summary_obj_dict[level].update(psnr_val=psnr, lpips_val=lpips, ssim_val=ssim, depth_mse=depth_error)
@@ -183,7 +183,7 @@ class SceneEvaluator:
             # saving outputs: predicted rgb, accuracy map, predicted depth,  warp images
             self.save_outputs(gt_rgb, pred_rgb, file_id, level, rays_output, pred_depth, ray_sampler, data)
 
-    def check_if_ours(self):
+    def is_ours(self):
         is_deeprep = self.res_dir.parent.parent.parent.stem == 'deeprep'
         is_bpn = self.res_dir.parent.parent.parent.stem == 'bpn'
         ours = not is_bpn and not is_deeprep
@@ -203,7 +203,7 @@ class SceneEvaluator:
             print("********** evaluate images ***********")
             self.evaluate_images(data, ray_sampler, file_id)
 
-        if self.eval_args.eval_rays:
+        if self.eval_args.eval_rays and self.eval_args.factor == 4:
             print("********** evaluate rays   ***********")
             self.evaluate_rays(data, ray_sampler)
 
@@ -219,18 +219,18 @@ class SceneEvaluator:
         if self.eval_args.eval_dataset == 'usfm':
             noisy_rgb = noisy_rgb * data['white_level']
             averaged_img = averaged_img * data['white_level'].numpy()
-        imageio.imwrite(str(self.res_dir / f"{file_id}_noisy.png"), to_uint(noisy_rgb.cpu().numpy()), 'PNG-FI')
-        imageio.imwrite(str(self.res_dir / f"{file_id}_average.png"), to_uint(averaged_img), 'PNG-FI')
+        imwrite(str(self.res_dir / f"{file_id}_noisy.png"), to_uint(noisy_rgb.cpu().numpy()))
+        imwrite(str(self.res_dir / f"{file_id}_average.png"), to_uint(averaged_img))
 
     def load_results(self, file_id):
-        pred_fine = torch.tensor(imageio.imread(self.res_dir / f"{self.eval_args.post}{file_id}_pred_fine.png")) / 255
+        pred_fine = torch.tensor(imread(self.res_dir / f"{self.eval_args.post}{file_id}_pred_fine.png"))
 
         if self.ours:
             pred_depth_fine = torch.tensor(
-                imageio.imread(self.res_dir / f"{file_id}_depth_fine.png").__array__() / 1000)
-            pred_coarse = torch.tensor(imageio.imread(self.res_dir / f"{file_id}_pred_coarse.png")) / 255
+                imread(self.res_dir / f"{file_id}_depth_fine.png", to_float=False).__array__() / 1000)
+            pred_coarse = torch.tensor(imread(self.res_dir / f"{file_id}_pred_coarse.png"))
             pred_depth_coarse = torch.tensor(
-                imageio.imread(self.res_dir / f"{file_id}_depth_coarse.png").__array__() / 1000)
+                imread(self.res_dir / f"{file_id}_depth_coarse.png", to_float=False).__array__() / 1000)
         else:
             pred_depth_fine = torch.zeros_like(pred_fine[..., 0])
             pred_coarse = torch.zeros_like(pred_fine)
@@ -263,25 +263,24 @@ class SceneEvaluator:
         if gt_rgb is not None:
             err_map = (((pred_rgb - gt_rgb) ** 2).sum(-1).clamp(0, 1) ** (1 / 3)).numpy()
             err_map_colored = to_uint(self.CMAP(err_map)[..., :3])
-            imageio.imwrite(str(self.res_dir / f"{file_id}_err_map_{level}.png"), err_map_colored, 'PNG-FI')
+            imwrite(str(self.res_dir / f"{file_id}_err_map_{level}.png"), err_map_colored)
 
         # predicted rgb
         pred_rgb = to_uint(pred_rgb.numpy())
-        imageio.imwrite(str(self.res_dir / f"{file_id}_pred_{level}.png"), pred_rgb, 'PNG-FI')
+        imwrite(str(self.res_dir / f"{file_id}_pred_{level}.png"), pred_rgb)
 
         # accuracy map
         acc_map = torch.sum(rays_output[level].weights, dim=-1).detach().cpu()
         acc_map_colored = to_uint(self.CMAP(acc_map)[..., :3])
-        imageio.imwrite(str(self.res_dir / f"{file_id}_acc_map_{level}.png"), acc_map_colored, 'PNG-FI')
+        imwrite(str(self.res_dir / f"{file_id}_acc_map_{level}.png"), acc_map_colored)
 
         # predicted depth (depth error is saved under calc_depth)
-        imageio.imwrite(str(self.res_dir / f"{file_id}_depth_{level}.png"),
-                        (pred_depth * 1000).astype(np.uint16), 'PNG-FI')
+        imwrite(str(self.res_dir / f"{file_id}_depth_{level}.png"), (pred_depth * 1000).astype(np.uint16))
 
         depth_range = data['depth_range']
         norm_depth = plt.Normalize(vmin=depth_range.squeeze()[0], vmax=depth_range.squeeze()[1])
         pred_depth_colored = to_uint(self.CMAP(norm_depth(pred_depth))[..., :3])
-        imageio.imwrite(str(self.res_dir / f"{file_id}_depth_vis_{level}.png"), pred_depth_colored, 'PNG-FI')
+        imwrite(str(self.res_dir / f"{file_id}_depth_vis_{level}.png"), pred_depth_colored)
 
         # warp images
         if ray_sampler.render_stride == 1:
@@ -290,13 +289,14 @@ class SceneEvaluator:
                 warped_img_rgb = de_linearize(warped_img_rgb, data['white_level'])
             if self.eval_args.eval_dataset == 'usfm':
                 warped_img_rgb = warped_img_rgb * data['white_level']
-            imageio.imwrite(str(self.res_dir / f"{file_id}_warped_images_{level}.png"), warped_img_rgb, 'PNG-FI')
+            warped_img_rgb = to_uint(warped_img_rgb.cpu().numpy())
+            imwrite(str(self.res_dir / f"{file_id}_warped_images_{level}.png"), warped_img_rgb)
 
             summary_image = np.concatenate((pred_rgb, warped_img_rgb, pred_depth_colored), axis=1)
         else:
             summary_image = np.concatenate((pred_rgb, pred_depth_colored), axis=1)
 
-        imageio.imwrite(str(self.res_dir / f"{file_id}_sum_{level}.png"), summary_image, 'PNG-FI')
+        imwrite(str(self.res_dir / f"{file_id}_sum_{level}.png"), summary_image)
 
     def depth_evaluation(self, rays_output, data, level, file_id):
         depth_range = data['depth_range']
@@ -307,8 +307,7 @@ class SceneEvaluator:
             if gt_depth.shape != () and gt_depth.shape == pred_depth.shape and pred_depth.sum() > 0:
                 depth_error_map = ((gt_depth - pred_depth) ** 2)
                 depth_error = depth_error_map.mean()
-                imageio.imwrite(str(self.res_dir / f"{file_id}_depth_error_{level}.png"),
-                                to_uint(norm_depth(depth_error_map)), 'PNG-FI')
+                imwrite(str(self.res_dir / f"{file_id}_depth_error_{level}.png"), to_uint(norm_depth(depth_error_map)))
             else:
                 depth_error = 0
         else:

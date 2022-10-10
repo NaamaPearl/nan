@@ -22,7 +22,7 @@ from pathlib import Path
 import configargparse
 import sys
 
-from configs.local_setting import OUT_DIR, TRAIN_CONFIG
+from configs.local_setting import OUT_DIR, TRAIN_CONFIG, ROOT_DIR
 from nan.utils.io_utils import tuple_str, get_latest_file
 
 if sys.gettrace() is None:
@@ -239,6 +239,11 @@ class CustomArgumentParser(configargparse.ArgumentParser):
         args = super().parse_args(**kwargs)
 
         # Arranging some arguments
+        # ckpt_path
+        if not args.ckpt_path.is_absolute():
+            print(f"[*] changing args.ckpt_path={str(args.ckpt_path)} to absolute path {ROOT_DIR / args.ckpt_path}")
+        args.ckpt_path = ROOT_DIR / args.ckpt_path
+
         # losses
         assert len(args.losses) == len(args.losses_weights)
         loss_dict = {loss: w for loss, w in zip(args.losses, args.losses_weights) if w > 0}

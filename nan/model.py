@@ -143,9 +143,9 @@ class NANScheme(nn.Module):
 
         load_dict['model'] = model_dict
 
-        if self.args.load_opt:
+        if not self.args.no_load_opt:
             self.optimizer.load_state_dict(load_dict['optimizer'])
-        if self.args.load_scheduler:
+        if not self.args.no_load_scheduler:
             self.scheduler.load_state_dict(load_dict['scheduler'])
 
         self.load_weights_to_net(self, load_dict['model'], self.args.allow_weights_mismatch)

@@ -28,21 +28,21 @@ def render_single_image(ray_sampler: RaySampler,
                         args,
                         save_pixel=None) -> Dict[str, RaysOutput]:
     """
-    @param: save_pixel:
-    @param: featmaps:
-    @param: render_stride:
-    @param: white_bkgd:
-    @param: det:
-    @param: ret_output:
-    @param: projector:
-    @param: ray_batch:
-    @param: ray_sampler: RaySamplingSingleImage for this view
-    @param: model:  {'net_coarse': , 'net_fine': , ...}
-    @param: chunk_size: number of rays in a chunk
-    @param: N_samples: samples along each ray (for both coarse and fine model)
-    @param: inv_uniform: if True, uniformly sample inverse depth for coarse model
-    @param: N_importance: additional samples along each ray produced by importance sampling (for fine model)
-    @return: {'coarse': {'rgb': numpy, 'depth': numpy, ...}, 'fine': {}}
+    :param: save_pixel:
+    :param: featmaps:
+    :param: render_stride:
+    :param: white_bkgd:
+    :param: det:
+    :param: ret_output:
+    :param: projector:
+    :param: ray_batch:
+    :param: ray_sampler: RaySamplingSingleImage for this view
+    :param: model:  {'net_coarse': , 'net_fine': , ...}
+    :param: chunk_size: number of rays in a chunk
+    :param: N_samples: samples along each ray (for both coarse and fine model)
+    :param: inv_uniform: if True, uniformly sample inverse depth for coarse model
+    :param: N_importance: additional samples along each ray produced by importance sampling (for fine model)
+    :return: {'coarse': {'rgb': numpy, 'depth': numpy, ...}, 'fine': {}}
     """
     device = torch.device(f'cuda:{args.local_rank}')
     ray_render = RayRender(model=model, args=args, device=device, save_pixel=save_pixel)

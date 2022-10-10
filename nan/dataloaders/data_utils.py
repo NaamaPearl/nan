@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import imageio
 import numpy as np
 import math
 from PIL import Image
@@ -260,6 +260,25 @@ def to_uint(im, bits=16, clip=True, norm_max=False):
     if bits == 8:
         return ((2 ** bits - 1) * im).astype(np.uint8)
     elif bits == 16:
-        return ((2 ** bits - 1) * im).astype(np.uint8)
+        return ((2 ** bits - 1) * im).astype(np.uint16)
     else:
         raise NotImplementedError
+
+
+def im2double(im):
+    if im.dtype == np.uint8:
+        return im / 255
+    elif im.dtype == np.dtype16:
+        return im / (2 ** 16 - 1)
+
+# 'PNG-FI' is for not converting uint8 to uint16 in writing and reading uint16
+def imwrite(im, im_path):
+    imageio.imwrite(im_path, im, 'PNG-FI')
+
+
+def imread(im_path, to_float=True):
+    im = imageio.imread(im_path, 'PNG-FI')
+    if to_float:
+        im = im2double(im)
+    return im
+
