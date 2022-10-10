@@ -62,7 +62,7 @@ The checkpoint will be loaded from the path specified in `eval.yml`
 
 ## Training
 
-```
+
 This will train with nan configuration and load automatically `train.yml`
 ```
 python train.py 
