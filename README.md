@@ -30,17 +30,16 @@ conda activate nan
 ## Datasets
 Please refer to [IBRNet](https://github.com/googleinterns/IBRNet) for the dataset instruction.
 
-[//]: # (## Evaluation)
+## Evaluation
 
-[//]: # (Our checkpoints can be downloaded using: <mark>TODO)
+Our checkpoints can be downloaded form [https://drive.google.com/file/d/1MFRdNA0Y9yowUEo991GvSjoUr8bYYglm/view](https://drive.google.com/file/d/1MFRdNA0Y9yowUEo991GvSjoUr8bYYglm/view),
+or by using:
+```
+cd out
+gdown https://drive.google.com/open?id=1MFRdNA0Y9yowUEo991GvSjoUr8bYYglm
+unzip reproduce__NAN.zip
 
-[//]: # (```)
-
-[//]: # (gdown ****)
-
-[//]: # (unzip pretrained_model.zip)
-
-[//]: # (```)
+```
 
 For evaluation run
 ```
@@ -61,7 +60,6 @@ The checkpoint will be loaded from the path specified in `eval.yml`
 
 ## Training
 
-```
 This will train with nan configuration and load automatically `train.yml`
 ```
 python train.py 

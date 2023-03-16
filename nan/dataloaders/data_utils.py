@@ -272,7 +272,7 @@ def im2double(im):
         return im / (2 ** 16 - 1)
 
 # 'PNG-FI' is for not converting uint8 to uint16 in writing and reading uint16
-def imwrite(im, im_path):
+def imwrite(im_path, im):
     imageio.imwrite(im_path, im, 'PNG-FI')
 
 

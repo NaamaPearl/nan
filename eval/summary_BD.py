@@ -32,7 +32,7 @@ def summary_results_per_gain(training, data, gain, print_fn=print_exp):
                 continue
             result_summary.append(np.load(res))
 
-        if data == 'llff_test':
+        if data.startswith('llff_test'):
             if len(result_summary) != 8:
                 print(len(result_summary), print_link(exp_dir, ""))
                 continue

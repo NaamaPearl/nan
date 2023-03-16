@@ -13,14 +13,13 @@
 # limitations under the License.
 
 from pathlib import Path
-import imageio
 import numpy as np
 
 from eval.slideshow import slider_show_rgb_ray
 from nan.dataloaders.basic_dataset import de_linearize, de_linearize_np
-from nan.dataloaders.data_utils import to_uint
 from nan.utils.io_utils import tuple_str
 from nan.raw2output import RaysOutput
+from nan.dataloaders.data_utils import to_uint, imwrite
 from visualizing.plotting import *
 
 plt.rcParams["axes.prop_cycle"] = mpl.cycler(
@@ -141,9 +140,9 @@ def analyze_per_pixel(ret, data, save_pixel_list, res_dir: Path, show=True):
     for pixel in save_pixel_list:
         y, x = pixel
         c = 9  # 30
-        imageio.imwrite(str(rays_exp_dir / f"{tuple_str(pixel)}_gt_noisy.png"),
+        imwrite(str(rays_exp_dir / f"{tuple_str(pixel)}_gt_noisy.png"),
                         gt_rgb_np_uint8[y - c:y + c, x - c:x + c])
-    imageio.imwrite(str(rays_exp_dir / f"save_pixels_marked.png"), gt_rgb_np_uint8)
+    imwrite(str(rays_exp_dir / f"save_pixels_marked.png"), gt_rgb_np_uint8)
 
     # show ground truth image
     # plt.figure()

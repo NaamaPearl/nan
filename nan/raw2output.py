@@ -54,7 +54,6 @@ class RaysOutput:
 
         # maths show weights, and summation of weights along a ray, are always inside [0, 1]
         weights = alpha * T  # [N_rays, N_samples]
-        weights[rho.sum(1) < 1e-3] /= weights[rho.sum(1) < 1e-3].sum(1, keepdim=True)
         rgb_map = torch.sum(unsqueeze_like(weights, rgb) * rgb, dim=1)  # [N_rays, 3]
 
         if white_bkgd:

@@ -1,7 +1,6 @@
 import os
 from typing import List, Dict
 
-import imageio
 import lpips
 import matplotlib.pyplot as plt
 import numpy as np

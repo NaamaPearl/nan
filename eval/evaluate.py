@@ -40,7 +40,7 @@ def main():
     for gain in DEFAULT_GAIN_LIST:
         print(f'{gain=}')
         differ_from_train_args = [('factor', 4), ('eval_gain', gain), ('num_source_views', 8)]
-        eval_multi_scenes(differ_from_train_args=differ_from_train_args, scene_list=['fern'])
+        eval_multi_scenes(differ_from_train_args=differ_from_train_args)
 
 
 if __name__ == '__main__':

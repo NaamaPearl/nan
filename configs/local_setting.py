@@ -25,7 +25,7 @@ CONFIG_EVAL_DICT[PC_NAME] = 'eval.yml'
 ROOT_DIR     = ROOT_DIR_DICT[PC_NAME]
 OUT_DIR      = ROOT_DIR / 'out'
 LOG_DIR      = ROOT_DIR / 'logs'
-DATA_DIR     = ROOT_DIR / 'data'
+DATA_DIR     = ROOT_DIR.parent / 'data'
 FIG_DIR      = ROOT_DIR / 'figures'
 
 FIG_DIR.mkdir(exist_ok=True)

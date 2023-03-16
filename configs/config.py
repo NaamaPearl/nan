@@ -240,9 +240,9 @@ class CustomArgumentParser(configargparse.ArgumentParser):
 
         # Arranging some arguments
         # ckpt_path
-        if not args.ckpt_path.is_absolute():
+        if args.ckpt_path is not None and not args.ckpt_path.is_absolute():
             print(f"[*] changing args.ckpt_path={str(args.ckpt_path)} to absolute path {ROOT_DIR / args.ckpt_path}")
-        args.ckpt_path = ROOT_DIR / args.ckpt_path
+            args.ckpt_path = ROOT_DIR / args.ckpt_path
 
         # losses
         assert len(args.losses) == len(args.losses_weights)

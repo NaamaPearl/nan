@@ -1,6 +1,6 @@
 ### INPUT
 expname                     : reproduce
-render_stride               : 2 # used in evaluation
+render_stride               : 2  # used in evaluation
 distributed                 : False
 
 ## dataset
