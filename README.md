@@ -6,7 +6,7 @@
 PyTorch implementation of the paper "NAN: Noise-Aware NeRFs for Burst Denoising", CVPR 2022.
 
 > NAN: Noise-Aware NeRFs for Burst Denoising
-> [Naama Pearl](mailto:naama.pearl@gmail.com) | [Tali Treibitz]() | [Simon Korman]()
+> [Naama Pearl](mailto:naama.pearl@gmail.com) | [Tali Treibitz](https://www.viseaon.haifa.ac.il/) | [Simon Korman](https://www.cs.haifa.ac.il/~skorman/)
 > CVPR, 2022
 
 
@@ -21,11 +21,12 @@ git clone https://github.com/NaamaPearl/nan
 cd nan/
 ```
 
-The code is tested with Python3.9, PyTorch==1.11 and cudatoolkit=11.1 on NIDIA RTX 3090. To create a conda environment:
+The code is tested with Python3.9, PyTorch==1.11 and cudatoolkit=11.1 on NIDIA RTX 3090. To create a conda environment compatible with RTX 3090:
 ```
 conda env create -f environment.yml
 conda activate nan
 ```
+For different platforms, the pytorch installation will probably be different.
 
 ## Datasets
 Please refer to [IBRNet](https://github.com/googleinterns/IBRNet) for the dataset instruction.
@@ -60,11 +61,12 @@ The checkpoint will be loaded from the path specified in `eval.yml`
 
 ## Training
 
+
 This will train with nan configuration and load automatically `train.yml`
 ```
 python train.py 
 ```
-(IBRNet train with multiple GPUs. The framework for still exists, but I didn't test it.)
+(IBRNet train with multiple GPUs. The framework for still exists, but we didn't run it.)
  
  
 ## Citation
